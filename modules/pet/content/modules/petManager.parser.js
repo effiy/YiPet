@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -9,7 +9,10 @@
   // 清理文件名（移除非法字符）
   proto._sanitizeFileName = function (fileName) {
     // 移除或替换Windows/Linux文件名中的非法字符
-    return String(fileName || '').replace(/\s+/g, '_').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim()
+    return String(fileName || '')
+      .replace(/\s+/g, '_')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .trim()
   }
 
   // 生成context.md内容
@@ -76,7 +79,7 @@
       tags: [],
       messages: [],
       createdAt: null,
-      updatedAt: null
+      updatedAt: null,
     }
 
     if (!markdownContent || typeof markdownContent !== 'string') {
@@ -85,12 +88,9 @@
 
     // 分割内容：页面信息和聊天记录
     const chatRecordIndex = markdownContent.indexOf('# 聊天记录')
-    const pageInfoContent = chatRecordIndex >= 0
-      ? markdownContent.substring(0, chatRecordIndex).trim()
-      : markdownContent.trim()
-    const chatContent = chatRecordIndex >= 0
-      ? markdownContent.substring(chatRecordIndex).trim()
-      : ''
+    const pageInfoContent =
+      chatRecordIndex >= 0 ? markdownContent.substring(0, chatRecordIndex).trim() : markdownContent.trim()
+    const chatContent = chatRecordIndex >= 0 ? markdownContent.substring(chatRecordIndex).trim() : ''
 
     // 解析页面信息部分
     // 提取标题（第一行的 # 标题）
@@ -134,7 +134,10 @@
     // 提取标签
     const tagsMatch = pageInfoContent.match(/\*\*标签\*\*:\s*(.+?)$/m)
     if (tagsMatch) {
-      result.tags = tagsMatch[1].split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+      result.tags = tagsMatch[1]
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0)
     }
 
     // 提取页面内容（## 页面内容 之后的内容）
@@ -163,7 +166,8 @@
     // 解析聊天记录部分
     if (chatContent) {
       // 使用正则表达式匹配每个消息
-      const messagePattern = /##\s+消息\s+\d+\s*\n\n\*\*角色\*\*:\s*(.+?)\s*\n\n(?:\*\*时间\*\*:\s*(.+?)\s*\n\n)?\*\*内容\*\*:\s*\n\n(.+?)\n\n---/gs
+      const messagePattern =
+        /##\s+消息\s+\d+\s*\n\n\*\*角色\*\*:\s*(.+?)\s*\n\n(?:\*\*时间\*\*:\s*(.+?)\s*\n\n)?\*\*内容\*\*:\s*\n\n(.+?)\n\n---/gs
       let messageMatch
       while ((messageMatch = messagePattern.exec(chatContent)) !== null) {
         const role = messageMatch[1].trim()
@@ -177,7 +181,7 @@
           type,
           role,
           content,
-          timestamp
+          timestamp,
         })
       }
     }

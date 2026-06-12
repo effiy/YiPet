@@ -1,5 +1,5 @@
 // 在页面上下文中加载 mermaid.js 的脚本
-(function () {
+;(function () {
   'use strict'
 
   // 检查是否已经加载
@@ -25,9 +25,11 @@
 
   if (!scriptUrl) {
     console.error('[LoadMermaid] 无法获取 mermaid.min.js 的 URL')
-    window.dispatchEvent(new CustomEvent('mermaid-load-error', {
-      detail: { error: '无法获取脚本 URL' }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('mermaid-load-error', {
+        detail: { error: '无法获取脚本 URL' },
+      }),
+    )
     return
   }
 
@@ -57,7 +59,7 @@
             background: '#0f172a',
             mainBkg: '#1e293b',
             secondBkg: '#334155',
-            tertiaryBkg: '#475569'
+            tertiaryBkg: '#475569',
           },
           fontFamily: '"Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif',
           fontSize: 14,
@@ -65,7 +67,7 @@
             useMaxWidth: false,
             htmlLabels: true,
             curve: 'basis',
-            wrap: false
+            wrap: false,
           },
           sequence: {
             diagramMarginX: 50,
@@ -82,7 +84,7 @@
             useMaxWidth: false,
             rightAngles: false,
             showSequenceNumbers: false,
-            wrap: false
+            wrap: false,
           },
           gantt: {
             titleTopMargin: 25,
@@ -91,14 +93,14 @@
             fontFamily: '"Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif',
             sectionFontSize: 11,
             numberSectionStyles: 4,
-            useMaxWidth: false
+            useMaxWidth: false,
           },
           gitgraph: {
             mainBranchName: 'main',
             showCommitLabel: true,
             showBranches: true,
-            rotateCommitLabel: false
-          }
+            rotateCommitLabel: false,
+          },
         })
         window.__MERMAID_LOADED__ = true
         window.__MERMAID_READY__ = true
@@ -107,9 +109,11 @@
       } else {
         console.error('[LoadMermaid] Mermaid 对象未找到或没有 initialize 方法')
         window.__MERMAID_ERROR__ = true
-        window.dispatchEvent(new CustomEvent('mermaid-error', {
-          detail: { error: 'Mermaid 对象未找到' }
-        }))
+        window.dispatchEvent(
+          new CustomEvent('mermaid-error', {
+            detail: { error: 'Mermaid 对象未找到' },
+          }),
+        )
       }
     }, 100)
   }
@@ -117,12 +121,14 @@
   script.onerror = function (error) {
     console.error('[LoadMermaid] 加载 Mermaid.js 失败:', error)
     window.__MERMAID_ERROR__ = true
-    window.dispatchEvent(new CustomEvent('mermaid-error', {
-      detail: { error: '脚本加载失败' }
-    }))
-  };
+    window.dispatchEvent(
+      new CustomEvent('mermaid-error', {
+        detail: { error: '脚本加载失败' },
+      }),
+    )
+  }
 
-  (document.head || document.documentElement).appendChild(script)
+  ;(document.head || document.documentElement).appendChild(script)
   window.__MERMAID_LOADING__ = true
   console.log('[LoadMermaid] 开始加载 Mermaid.js:', scriptUrl)
 })()

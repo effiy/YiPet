@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>jsdom 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 240px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../index.html">← 返回 Demo 中心</a>
+  <h1>jsdom 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>jsdom v26.0.0 为 vitest 提供浏览器环境。无需真实 Chrome 即可运行全部测试 —— 提供 window/document/navigator/AbortController/DOM 事件模拟。</p>
+</section>
+
+<section id="env">
+  <h2>全局环境注入</h2>
+  <p>vitest 配置 environment: 'jsdom' 后，所有测试可访问 DOM API。</p>
+  <div class="card">
+    <h3>setup.mjs 中的环境检测</h3>
+<pre><span class="kw">import</span> { beforeAll } <span class="kw">from</span> <span class="str">'vitest'</span>;
+
+<span class="fn">beforeAll</span>(() => {
+  <span class="kw">if</span> (<span class="kw">typeof</span> window === <span class="str">'undefined'</span>) {
+    <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'jsdom not configured'</span>);
+  }
+  <span class="cm">// 确认环境就绪</span>
+});</pre>
+  </div>
+</section>
+
+<section id="api">
+  <h2>可用 API 清单</h2>
+  <div class="demo-box">
+    <h4>jsdom 提供的浏览器 API</h4>
+    <div class="output" id="apiOutput">
+      <div><span class="key">window</span> → <span class="val">[object Window]</span></div>
+      <div><span class="key">document</span> → <span class="val">[object Document]</span></div>
+      <div><span class="key">navigator</span> → <span class="val">[object Navigator]</span></div>
+      <div><span class="key">AbortController</span> → <span class="val">[object AbortController]</span></div>
+      <div><span class="key">HTMLElement</span> → <span class="val">[object HTMLElement]</span></div>
+      <div><span class="key">Event/CustomEvent</span> → <span class="val">[object Function]</span></div>
+      <div><span class="key">localStorage</span> → <span class="val">[object Storage]</span></div>
+    </div>
+    <button class="btn" onclick="runApiCheck()">▶ 检测 API 可用性</button>
+  </div>
+</section>
+
+<section id="vue">
+  <h2>Vue 3 组件挂载</h2>
+  <p>jsdom 环境下通过 test-utils 模拟 Vue 3 组件挂载。</p>
+  <div class="card">
+<pre><span class="cm">// 模拟 Vue 组件挂载</span>
+<span class="kw">const</span> mountEl = document.<span class="fn">createElement</span>(<span class="str">'div'</span>);
+mountEl.id = <span class="str">'app'</span>;
+document.body.<span class="fn">appendChild</span>(mountEl);
+
+<span class="kw">const</span> app = Vue.<span class="fn">createApp</span>({
+  template: <span class="str">'&lt;ChatWindow /&gt;'</span>,
+  components: { ChatWindow }
+});
+app.<span class="fn">mount</span>(mountEl);
+
+<span class="fn">expect</span>(mountEl.querySelector(<span class="str">'.chat-window'</span>)).<span class="fn">not</span>.<span class="fn">toBeNull</span>();</pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — DOM 操作</h2>
+  <p>使用 jsdom 环境进行 DOM 元素操作模拟。</p>
+  <div class="demo-box">
+    <h4>DOM 元素创建与属性操作</h4>
+    <div class="output" id="domOutput">点击下方按钮执行 DOM 操作...</div>
+    <button class="btn" onclick="runDomDemo()">▶ 运行 DOM 演示</button>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="../index.html">Demo 中心</a> · <a href="../../docs/index.html">文档中心</a> · <a href="../../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+function runApiCheck() {
+  const el = document.getElementById('apiOutput');
+  const checks = [
+    ['window', typeof window !== 'undefined'],
+    ['document', typeof document !== 'undefined'],
+    ['navigator', typeof navigator !== 'undefined'],
+    ['AbortController', typeof AbortController !== 'undefined'],
+    ['HTMLElement', typeof HTMLElement !== 'undefined'],
+    ['CustomEvent', typeof CustomEvent !== 'undefined'],
+    ['localStorage', typeof localStorage !== 'undefined'],
+  ];
+  let html = '';
+  checks.forEach(([name, ok]) => {
+    html += '<div><span class="key">' + name + '</span> → <span class="val">' + (ok ? '✓ 可用' : '✗ 不可用') + '</span></div>';
+  });
+  el.innerHTML = html;
+}
+
+function runDomDemo() {
+  const el = document.getElementById('domOutput');
+  const lines = [];
+  const div = document.createElement('div');
+  div.className = 'test-el';
+  div.textContent = 'Hello jsdom';
+  div.setAttribute('data-test', '123');
+  document.body.appendChild(div);
+  lines.push('✓ 创建元素: <div class="test-el" data-test="123">');
+  lines.push('  textContent: "' + div.textContent + '"');
+  lines.push('  outerHTML: ' + div.outerHTML.substring(0, 60) + '...');
+  const found = document.querySelector('.test-el');
+  lines.push('✓ querySelector: ' + (found ? '找到元素' : '未找到'));
+  const evt = new CustomEvent('test', { detail: { msg: 'ok' } });
+  div.dispatchEvent(evt);
+  lines.push('✓ CustomEvent 分发: detail = ' + JSON.stringify(evt.detail));
+  div.remove();
+  lines.push('✓ remove: 元素已从 DOM 移除');
+  el.innerHTML = lines.join('\n');
+}
+</script>
+</body>
+</html>

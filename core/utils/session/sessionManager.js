@@ -5,7 +5,7 @@
  */
 
 class SessionManager {
-  constructor (options = {}) {
+  constructor(options = {}) {
     // 配置选项
     this.sessionApi = options.sessionApi || null // SessionService 实例
     this.enableBackendSync = options.enableBackendSync || false // 是否启用后端同步
@@ -36,9 +36,9 @@ class SessionManager {
   }
 
   /**
-     * 初始化会话管理器
-     */
-  async initialize () {
+   * 初始化会话管理器
+   */
+  async initialize() {
     if (this._initialized) {
       return
     }
@@ -52,28 +52,26 @@ class SessionManager {
   }
 
   /**
-     * 生成 UUID v4 格式的 key
-     * @returns {string} UUID 格式的字符串
-     */
-  _generateUUID () {
+   * 生成 UUID v4 格式的 key
+   * @returns {string} UUID 格式的字符串
+   */
+  _generateUUID() {
     // 生成 UUID v4 格式：xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = Math.random() * 16 | 0
-      const v = c === 'x' ? r : (r & 0x3 | 0x8)
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 0x3) | 0x8
       return v.toString(16)
     })
   }
 
   /**
-     * 生成会话ID（基于URL的MD5哈希）
-     * @param {string} url - 页面URL（可选）
-     * @returns {Promise<string>} 会话ID（32位MD5十六进制字符串）
-     */
-  async generateSessionId (url) {
+   * 生成会话ID（基于URL的MD5哈希）
+   * @param {string} url - 页面URL（可选）
+   * @returns {Promise<string>} 会话ID（32位MD5十六进制字符串）
+   */
+  async generateSessionId(url) {
     // 确保md5函数可用
-    const md5Func = typeof md5 !== 'undefined'
-      ? md5
-      : (typeof window !== 'undefined' && window.md5) ? window.md5 : null
+    const md5Func = typeof md5 !== 'undefined' ? md5 : typeof window !== 'undefined' && window.md5 ? window.md5 : null
 
     if (!md5Func) {
       throw new Error('MD5函数未找到，请确保已加载md5.js')
@@ -90,12 +88,12 @@ class SessionManager {
   }
 
   /**
-     * 从会话ID提取项目ID和文件路径
-     * 格式：{projectId}_{filePath}（文件路径中的特殊字符替换为下划线）
-     * @param {string} sessionId - 会话ID
-     * @returns {Object|null} {projectId, filePath} 或 null
-     */
-  _extractAicrInfo (sessionId) {
+   * 从会话ID提取项目ID和文件路径
+   * 格式：{projectId}_{filePath}（文件路径中的特殊字符替换为下划线）
+   * @param {string} sessionId - 会话ID
+   * @returns {Object|null} {projectId, filePath} 或 null
+   */
+  _extractAicrInfo(sessionId) {
     if (!sessionId || typeof sessionId !== 'string') {
       return null
     }
@@ -121,15 +119,15 @@ class SessionManager {
   }
 
   /**
-     * 从文件路径提取标签（目录路径）
-     * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
-     * @param {string} filePath - 文件路径
-     * @returns {Array<string>} 标签数组
-     */
-  _extractTagsFromPath (filePath) {
+   * 从文件路径提取标签（目录路径）
+   * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
+   * @param {string} filePath - 文件路径
+   * @returns {Array<string>} 标签数组
+   */
+  _extractTagsFromPath(filePath) {
     if (!filePath) return []
 
-    const parts = filePath.split('/').filter(p => p && p.trim())
+    const parts = filePath.split('/').filter((p) => p && p.trim())
     if (parts.length <= 1) return []
 
     // 移除文件名，只保留目录路径作为标签
@@ -138,12 +136,12 @@ class SessionManager {
   }
 
   /**
-     * 规范化时间戳（转换为毫秒数）
-     * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
-     * @param {string|number|Date} timestamp - 时间戳
-     * @returns {number} 毫秒数
-     */
-  _normalizeTimestamp (timestamp) {
+   * 规范化时间戳（转换为毫秒数）
+   * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
+   * @param {string|number|Date} timestamp - 时间戳
+   * @returns {number} 毫秒数
+   */
+  _normalizeTimestamp(timestamp) {
     if (!timestamp) return Date.now()
     if (typeof timestamp === 'number') return timestamp
     if (typeof timestamp === 'string') {
@@ -160,45 +158,47 @@ class SessionManager {
   }
 
   /**
-     * 规范化消息数组（确保格式统一）
-     * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
-     * @param {Array} messages - 消息数组
-     * @returns {Array} 规范化后的消息数组
-     */
-  _normalizeMessages (messages) {
+   * 规范化消息数组（确保格式统一）
+   * 与 YiWeb aicr 的 sessionSyncService.js 保持一致
+   * @param {Array} messages - 消息数组
+   * @returns {Array} 规范化后的消息数组
+   */
+  _normalizeMessages(messages) {
     if (!Array.isArray(messages)) return []
 
-    return messages.map(msg => {
-      // 如果已经是标准格式，直接返回
-      if (msg.type && typeof msg.content === 'string' && typeof msg.timestamp === 'number') {
-        return {
-          type: msg.type,
-          content: String(msg.content || '').trim(),
-          timestamp: Number(msg.timestamp),
-          imageDataUrl: msg.imageDataUrl || undefined
+    return messages
+      .map((msg) => {
+        // 如果已经是标准格式，直接返回
+        if (msg.type && typeof msg.content === 'string' && typeof msg.timestamp === 'number') {
+          return {
+            type: msg.type,
+            content: String(msg.content || '').trim(),
+            timestamp: Number(msg.timestamp),
+            imageDataUrl: msg.imageDataUrl || undefined,
+          }
         }
-      }
 
-      // 否则转换为标准格式
-      const type = this._normalizeRole(msg)
-      const content = this._normalizeText(msg)
-      const timestamp = this._normalizeTimestamp(msg.timestamp || msg.ts)
+        // 否则转换为标准格式
+        const type = this._normalizeRole(msg)
+        const content = this._normalizeText(msg)
+        const timestamp = this._normalizeTimestamp(msg.timestamp || msg.ts)
 
-      return {
-        type,
-        content,
-        timestamp,
-        imageDataUrl: msg.imageDataUrl || msg.image || undefined
-      }
-    }).filter(msg => msg.content) // 过滤空内容
+        return {
+          type,
+          content,
+          timestamp,
+          imageDataUrl: msg.imageDataUrl || msg.image || undefined,
+        }
+      })
+      .filter((msg) => msg.content) // 过滤空内容
   }
 
   /**
-     * 规范化角色类型（与 YiPet 保持一致）
-     * @param {Object} msg - 消息对象
-     * @returns {string} 'user' 或 'pet'
-     */
-  _normalizeRole (msg) {
+   * 规范化角色类型（与 YiPet 保持一致）
+   * @param {Object} msg - 消息对象
+   * @returns {string} 'user' 或 'pet'
+   */
+  _normalizeRole(msg) {
     const author = String(msg.author || '').toLowerCase()
     const role = String(msg.role || msg.type || '').toLowerCase()
 
@@ -207,8 +207,15 @@ class SessionManager {
       return 'user'
     }
     // 判断是否为 AI 消息
-    if (role === 'pet' || role === 'assistant' || role === 'bot' || role === 'ai' ||
-            author.includes('AI') || author.includes('助手') || author.includes('assistant')) {
+    if (
+      role === 'pet' ||
+      role === 'assistant' ||
+      role === 'bot' ||
+      role === 'ai' ||
+      author.includes('AI') ||
+      author.includes('助手') ||
+      author.includes('assistant')
+    ) {
       return 'pet'
     }
     // 默认根据 author 判断
@@ -216,21 +223,21 @@ class SessionManager {
   }
 
   /**
-     * 规范化文本内容（与 YiPet 保持一致）
-     * @param {Object} msg - 消息对象
-     * @returns {string} 规范化后的文本内容
-     */
-  _normalizeText (msg) {
+   * 规范化文本内容（与 YiPet 保持一致）
+   * @param {Object} msg - 消息对象
+   * @returns {string} 规范化后的文本内容
+   */
+  _normalizeText(msg) {
     return String(msg.content || msg.text || msg.message || '').trim()
   }
 
   /**
-     * 获取会话标签（支持 aicr 目录映射）
-     * @param {string} sessionId - 会话ID
-     * @param {Object} pageInfo - 页面信息（可选）
-     * @returns {Array<string>} 标签数组
-     */
-  _getSessionTags (sessionId, pageInfo = {}) {
+   * 获取会话标签（支持 aicr 目录映射）
+   * @param {string} sessionId - 会话ID
+   * @param {Object} pageInfo - 页面信息（可选）
+   * @returns {Array<string>} 标签数组
+   */
+  _getSessionTags(sessionId, pageInfo = {}) {
     // 如果 pageInfo 中提供了标签，优先使用
     if (pageInfo.tags && Array.isArray(pageInfo.tags) && pageInfo.tags.length > 0) {
       return pageInfo.tags
@@ -253,20 +260,20 @@ class SessionManager {
   }
 
   /**
-     * 确保标题有 .md 后缀
-     * @private
-     */
-  _ensureMdSuffix (title) {
+   * 确保标题有 .md 后缀
+   * @private
+   */
+  _ensureMdSuffix(title) {
     if (!title || !title.trim()) return title
     const trimmed = title.trim()
-    return trimmed.endsWith('.md') ? trimmed : trimmed + '.md'
+    return trimmed.endsWith('.md') ? trimmed : `${trimmed}.md`
   }
 
   /**
-     * 创建会话对象
-     * 使用 UUID 格式的 key 作为主要标识符
-     */
-  createSession (sessionId, pageInfo = {}) {
+   * 创建会话对象
+   * 使用 UUID 格式的 key 作为主要标识符
+   */
+  createSession(sessionId, pageInfo = {}) {
     const now = Date.now()
     const tags = this._getSessionTags(sessionId, pageInfo)
 
@@ -285,26 +292,26 @@ class SessionManager {
       tags,
       createdAt: now,
       updatedAt: now,
-      lastAccessTime: now
+      lastAccessTime: now,
     }
   }
 
   /**
-     * 获取页面信息
-     */
-  getPageInfo () {
+   * 获取页面信息
+   */
+  getPageInfo() {
     return {
       url: window.location.href,
       title: document.title,
       pageDescription: this._extractPageDescription(),
-      pageContent: this._extractPageContent()
+      pageContent: this._extractPageContent(),
     }
   }
 
   /**
-     * 提取页面描述
-     */
-  _extractPageDescription () {
+   * 提取页面描述
+   */
+  _extractPageDescription() {
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
       return metaDescription.getAttribute('content') || ''
@@ -313,9 +320,9 @@ class SessionManager {
   }
 
   /**
-     * 提取页面内容（简化版，可以后续扩展）
-     */
-  _extractPageContent () {
+   * 提取页面内容（简化版，可以后续扩展）
+   */
+  _extractPageContent() {
     // 提取主要内容，避免提取过多数据
     const body = document.body
     if (!body) return ''
@@ -327,19 +334,18 @@ class SessionManager {
   }
 
   /**
-     * 从后端加载会话
-     * 注意：已移除 getSessionsList 调用，只在第一次页面加载时调用（由 content.js 的 loadSessionsFromBackend 处理）
-     */
-  async loadBackendSessions (forceRefresh = false) {
+   * 从后端加载会话
+   * 注意：已移除 getSessionsList 调用，只在第一次页面加载时调用（由 content.js 的 loadSessionsFromBackend 处理）
+   */
+  async loadBackendSessions(_forceRefresh = false) {
     // 不再调用后端接口，只在第一次页面加载时调用
     // 第一次页面加载时的调用已在 content.js 的 loadSessionsFromBackend 中处理
-
   }
 
   /**
-     * 同步会话到后端
-     */
-  async syncSessionToBackend (sessionId, immediate = false, includePageContent = false) {
+   * 同步会话到后端
+   */
+  async syncSessionToBackend(sessionId, immediate = false, _includePageContent = false) {
     if (!this.sessionApi || !this.enableBackendSync) {
       return
     }
@@ -379,7 +385,7 @@ class SessionManager {
         isFavorite: session.isFavorite !== undefined ? Boolean(session.isFavorite) : false,
         createdAt: this._normalizeTimestamp(session.createdAt),
         updatedAt: this._normalizeTimestamp(session.updatedAt),
-        lastAccessTime: this._normalizeTimestamp(session.lastAccessTime)
+        lastAccessTime: this._normalizeTimestamp(session.lastAccessTime),
       }
 
       if (immediate) {
@@ -395,11 +401,11 @@ class SessionManager {
   }
 
   /**
-     * 初始化或恢复会话（基于当前页面URL）
-     * 自动处理会话的查找、创建和激活
-     * @returns {Promise<string>} 会话ID
-     */
-  async initSession () {
+   * 初始化或恢复会话（基于当前页面URL）
+   * 自动处理会话的查找、创建和激活
+   * @returns {Promise<string>} 会话ID
+   */
+  async initSession() {
     await this.initialize()
 
     const pageInfo = this.getPageInfo()
@@ -437,21 +443,23 @@ class SessionManager {
   }
 
   /**
-     * 检查是否是同一页面的已有会话
-     * @private
-     */
-  _isSamePageSession (currentUrl) {
-    if (this.currentPageUrl === currentUrl &&
-            this.hasAutoCreatedSessionForPage &&
-            this.currentSessionId &&
-            this.sessions[this.currentSessionId]) {
+   * 检查是否是同一页面的已有会话
+   * @private
+   */
+  _isSamePageSession(currentUrl) {
+    if (
+      this.currentPageUrl === currentUrl &&
+      this.hasAutoCreatedSessionForPage &&
+      this.currentSessionId &&
+      this.sessions[this.currentSessionId]
+    ) {
       // 更新访问时间（节流，每分钟最多更新一次）
       const session = this.sessions[this.currentSessionId]
       const now = Date.now()
-      if (!session.lastAccessTime || (now - session.lastAccessTime) > 60000) {
+      if (!session.lastAccessTime || now - session.lastAccessTime > 60000) {
         session.lastAccessTime = now
         // 异步更新，不阻塞返回
-        this.saveSession(this.currentSessionId).catch(err => {
+        this.saveSession(this.currentSessionId).catch((err) => {
           console.warn('更新会话访问时间失败:', err)
         })
       }
@@ -461,10 +469,10 @@ class SessionManager {
   }
 
   /**
-     * 恢复已有会话
-     * @private
-     */
-  async _restoreExistingSession (sessionId, pageInfo) {
+   * 恢复已有会话
+   * @private
+   */
+  async _restoreExistingSession(sessionId, pageInfo) {
     const session = this.sessions[sessionId]
     if (!session) {
       console.warn('会话不存在，无法恢复:', sessionId)
@@ -488,10 +496,10 @@ class SessionManager {
   }
 
   /**
-     * 创建新会话
-     * @private
-     */
-  async _createNewSession (sessionId, pageInfo) {
+   * 创建新会话
+   * @private
+   */
+  async _createNewSession(sessionId, pageInfo) {
     const newSession = this.createSession(sessionId, pageInfo)
 
     // 使用 sessionId 作为存储键（基于 URL 的标识符）
@@ -502,16 +510,16 @@ class SessionManager {
   }
 
   /**
-     * 获取会话
-     */
-  getSession (sessionId) {
+   * 获取会话
+   */
+  getSession(sessionId) {
     return this.sessions[sessionId] || null
   }
 
   /**
-     * 获取当前会话
-     */
-  getCurrentSession () {
+   * 获取当前会话
+   */
+  getCurrentSession() {
     if (!this.currentSessionId) {
       return null
     }
@@ -519,11 +527,11 @@ class SessionManager {
   }
 
   /**
-     * 获取所有会话列表（已去重）
-     * 确保每个会话ID只出现一次，保留最新的版本
-     * @returns {Array} 去重后的会话列表
-     */
-  getAllSessions () {
+   * 获取所有会话列表（已去重）
+   * 确保每个会话ID只出现一次，保留最新的版本
+   * @returns {Array} 去重后的会话列表
+   */
+  getAllSessions() {
     // 按 session.id 去重，保留 updatedAt 最新的版本
     const sessionMap = new Map()
 
@@ -582,17 +590,17 @@ class SessionManager {
   }
 
   /**
-     * 创建新会话
-     * @param {string} customSessionId - 自定义会话ID（可选）
-     * @param {Object} pageInfo - 页面信息（可选）
-     * @returns {Promise<string>} 会话ID
-     */
-  async createNewSession (customSessionId = null, pageInfo = null) {
+   * 创建新会话
+   * @param {string} customSessionId - 自定义会话ID（可选）
+   * @param {Object} pageInfo - 页面信息（可选）
+   * @returns {Promise<string>} 会话ID
+   */
+  async createNewSession(customSessionId = null, pageInfo = null) {
     await this.initialize()
 
     // 生成或使用提供的会话ID
     const info = pageInfo || this.getPageInfo()
-    const sessionId = customSessionId || await this.generateSessionId(info.url)
+    const sessionId = customSessionId || (await this.generateSessionId(info.url))
 
     // 使用统一的创建逻辑
     await this._createNewSession(sessionId, info)
@@ -601,12 +609,12 @@ class SessionManager {
   }
 
   /**
-     * 复制会话（创建会话副本）
-     * @param {string} sourceSessionId - 源会话ID
-     * @param {Object} sourceSessionData - 可选的源会话数据（如果提供，将使用此数据而不是从 sessions 中读取）
-     * @returns {Promise<string>} 新会话ID
-     */
-  async duplicateSession (sourceSessionId, sourceSessionData = null) {
+   * 复制会话（创建会话副本）
+   * @param {string} sourceSessionId - 源会话ID
+   * @param {Object} sourceSessionData - 可选的源会话数据（如果提供，将使用此数据而不是从 sessions 中读取）
+   * @returns {Promise<string>} 新会话ID
+   */
+  async duplicateSession(sourceSessionId, sourceSessionData = null) {
     await this.initialize()
 
     // 如果提供了源会话数据，使用它；否则从 sessions 中读取
@@ -625,7 +633,8 @@ class SessionManager {
             ...sourceSession,
             ...fullSessionData,
             // 确保 pageContent 使用后端返回的值（如果存在）
-            pageContent: fullSessionData.pageContent !== undefined ? fullSessionData.pageContent : sourceSession.pageContent
+            pageContent:
+              fullSessionData.pageContent !== undefined ? fullSessionData.pageContent : sourceSession.pageContent,
           }
           console.log('已从后端获取源会话完整数据，包含页面上下文')
         }
@@ -643,9 +652,7 @@ class SessionManager {
     const duplicatedSession = {
       id: newSessionId,
       url: sourceSession.url || '',
-      title: sourceSession.title
-        ? `${sourceSession.title} (副本)`
-        : '新会话 (副本)',
+      title: sourceSession.title ? `${sourceSession.title} (副本)` : '新会话 (副本)',
       pageDescription: sourceSession.pageDescription || '',
       pageContent: sourceSession.pageContent || '',
       messages: sourceSession.messages ? JSON.parse(JSON.stringify(sourceSession.messages)) : [],
@@ -653,7 +660,7 @@ class SessionManager {
       isFavorite: sourceSession.isFavorite !== undefined ? sourceSession.isFavorite : false,
       createdAt: now,
       updatedAt: now,
-      lastAccessTime: now
+      lastAccessTime: now,
     }
 
     // 保存新会话
@@ -669,9 +676,9 @@ class SessionManager {
   }
 
   /**
-     * 更新会话页面信息
-     */
-  updateSessionPageInfo (sessionId, pageInfo = null) {
+   * 更新会话页面信息
+   */
+  updateSessionPageInfo(sessionId, pageInfo = null) {
     const session = this.sessions[sessionId]
     if (!session) {
       return false
@@ -683,12 +690,13 @@ class SessionManager {
     session.url = info.url || session.url
     const newTitle = info.title || ''
     const currentTitle = session.title || ''
-    const isDefaultTitle = !currentTitle ||
-                              currentTitle.trim() === '' ||
-                              currentTitle === '未命名会话' ||
-                              currentTitle === '新会话' ||
-                              currentTitle === '未命名页面' ||
-                              currentTitle === '当前页面'
+    const isDefaultTitle =
+      !currentTitle ||
+      currentTitle.trim() === '' ||
+      currentTitle === '未命名会话' ||
+      currentTitle === '新会话' ||
+      currentTitle === '未命名页面' ||
+      currentTitle === '当前页面'
 
     // 只有当新标题有效且（当前标题是默认值或新标题与当前标题不同）时才更新
     if (newTitle && newTitle.trim() !== '' && (isDefaultTitle || newTitle !== currentTitle)) {
@@ -702,9 +710,9 @@ class SessionManager {
   }
 
   /**
-     * 更新会话标题
-     */
-  updateSessionTitle (sessionId, title) {
+   * 更新会话标题
+   */
+  updateSessionTitle(sessionId, title) {
     const session = this.sessions[sessionId]
     if (!session) {
       return false
@@ -716,9 +724,9 @@ class SessionManager {
   }
 
   /**
-     * 添加消息到会话
-     */
-  async addMessage (sessionId, message) {
+   * 添加消息到会话
+   */
+  async addMessage(sessionId, message) {
     const session = this.sessions[sessionId]
     if (!session) {
       console.warn('会话不存在，无法添加消息:', sessionId)
@@ -738,9 +746,9 @@ class SessionManager {
   }
 
   /**
-     * 更新会话中的消息
-     */
-  async updateMessage (sessionId, messageIndex, message) {
+   * 更新会话中的消息
+   */
+  async updateMessage(sessionId, messageIndex, message) {
     const session = this.sessions[sessionId]
     if (!session || !session.messages) {
       return false
@@ -757,13 +765,13 @@ class SessionManager {
   }
 
   /**
-     * 保存会话（本地 + 后端同步）
-     * 统一处理会话保存逻辑，包括时间戳更新、本地存储和后端同步
-     * @param {string} sessionId - 会话ID
-     * @param {boolean} force - 是否强制立即保存（跳过防抖节流）
-     * @returns {Promise<boolean>} 是否保存成功
-     */
-  async saveSession (sessionId, force = false) {
+   * 保存会话（本地 + 后端同步）
+   * 统一处理会话保存逻辑，包括时间戳更新、本地存储和后端同步
+   * @param {string} sessionId - 会话ID
+   * @param {boolean} force - 是否强制立即保存（跳过防抖节流）
+   * @returns {Promise<boolean>} 是否保存成功
+   */
+  async saveSession(sessionId, force = false) {
     const session = this.sessions[sessionId]
     if (!session) {
       console.warn('会话不存在，无法保存:', sessionId)
@@ -789,9 +797,9 @@ class SessionManager {
   }
 
   /**
-     * 激活会话（切换到指定会话）
-     */
-  async activateSession (sessionId) {
+   * 激活会话（切换到指定会话）
+   */
+  async activateSession(sessionId) {
     if (!this.sessions[sessionId]) {
       console.warn('会话不存在，无法激活:', sessionId)
       return false
@@ -815,11 +823,11 @@ class SessionManager {
   }
 
   /**
-     * 删除会话
-     * @param {string} sessionId - 会话ID
-     * @returns {Promise<boolean>} 是否删除成功
-     */
-  async deleteSession (sessionId) {
+   * 删除会话
+   * @param {string} sessionId - 会话ID
+   * @returns {Promise<boolean>} 是否删除成功
+   */
+  async deleteSession(sessionId) {
     const session = this.sessions[sessionId]
     if (!session) {
       console.warn('会话不存在，无法删除:', sessionId)
@@ -862,18 +870,20 @@ class SessionManager {
   }
 
   /**
-     * 搜索会话
-     */
-  async searchSessions (query, limit = 10) {
+   * 搜索会话
+   */
+  async searchSessions(query, limit = 10) {
     if (!query) {
       return []
     }
 
     // 先从本地搜索
-    const localResults = this.getAllSessions().filter(session => {
-      const searchText = `${session.title || ''} ${session.url}`.toLowerCase()
-      return searchText.includes(query.toLowerCase())
-    }).slice(0, limit)
+    const localResults = this.getAllSessions()
+      .filter((session) => {
+        const searchText = `${session.title || ''} ${session.url}`.toLowerCase()
+        return searchText.includes(query.toLowerCase())
+      })
+      .slice(0, limit)
 
     // 如果启用后端同步，也从后端搜索
     if (this.sessionApi && this.enableBackendSync) {
@@ -881,8 +891,8 @@ class SessionManager {
         const backendResults = await this.sessionApi.searchSessions(query, limit)
         // 合并结果，去重
         const resultMap = new Map()
-        localResults.forEach(s => resultMap.set(s.id, s))
-        backendResults.forEach(s => {
+        localResults.forEach((s) => resultMap.set(s.id, s))
+        backendResults.forEach((s) => {
           if (!resultMap.has(s.id) || (s.updatedAt || 0) > (resultMap.get(s.id).updatedAt || 0)) {
             resultMap.set(s.id, s)
           }
@@ -897,18 +907,18 @@ class SessionManager {
   }
 
   /**
-     * 刷新会话列表（从后端重新加载）
-     */
-  async refreshSessions () {
+   * 刷新会话列表（从后端重新加载）
+   */
+  async refreshSessions() {
     if (this.sessionApi && this.enableBackendSync) {
       await this.loadBackendSessions(true)
     }
   }
 
   /**
-     * 清空所有会话
-     */
-  async clearAllSessions () {
+   * 清空所有会话
+   */
+  async clearAllSessions() {
     this.sessions = {}
     this.currentSessionId = null
     this.hasAutoCreatedSessionForPage = false

@@ -17,13 +17,20 @@
 
 class LoggerUtils {
   /**
-     * 初始化日志静默功能
-     * @param {string} keyName - 存储键名，默认为 'petDevMode'
-     * @param {boolean} defaultEnabled - 默认是否启用日志，默认为 false
-     */
-  static initMuteLogger (keyName = 'petDevMode', defaultEnabled = false) {
+   * 初始化日志静默功能
+   * @param {string} keyName - 存储键名，默认为 'petDevMode'
+   * @param {boolean} defaultEnabled - 默认是否启用日志，默认为 false
+   */
+  static initMuteLogger(keyName = 'petDevMode', defaultEnabled = false) {
     try {
-      const cfgKey = (typeof globalThis !== 'undefined' && globalThis.PET_CONFIG && globalThis.PET_CONFIG.constants && globalThis.PET_CONFIG.constants.storageKeys && globalThis.PET_CONFIG.constants.storageKeys.devMode) ? globalThis.PET_CONFIG.constants.storageKeys.devMode : null
+      const cfgKey =
+        typeof globalThis !== 'undefined' &&
+        globalThis.PET_CONFIG &&
+        globalThis.PET_CONFIG.constants &&
+        globalThis.PET_CONFIG.constants.storageKeys &&
+        globalThis.PET_CONFIG.constants.storageKeys.devMode
+          ? globalThis.PET_CONFIG.constants.storageKeys.devMode
+          : null
       const effectiveKeyName = keyName || cfgKey || 'petDevMode'
       // 检查 chrome.storage 是否可用
       if (typeof chrome === 'undefined' || !chrome.storage || !chrome.runtime) {
@@ -44,7 +51,7 @@ class LoggerUtils {
         log: console.log,
         info: console.info,
         debug: console.debug,
-        warn: console.warn
+        warn: console.warn,
       }
 
       const muteIfNeeded = (enabled) => {
@@ -102,17 +109,17 @@ class LoggerUtils {
     }
   })()
 
-  static setLevel (level) {
+  static setLevel(level) {
     if (this._levelMap[level] !== undefined) {
       this._currentLevel = level
     }
   }
 
-  static getLevel () {
+  static getLevel() {
     return this._currentLevel
   }
 
-  static _sanitize (obj) {
+  static _sanitize(obj) {
     try {
       if (!obj) return obj
       const maskKeys = ['token', 'key', 'password', 'secret', 'authorization', 'cookie']
@@ -122,7 +129,7 @@ class LoggerUtils {
         const out = {}
         for (const k in val) {
           const v = val[k]
-          if (maskKeys.some(m => k.toLowerCase().includes(m))) {
+          if (maskKeys.some((m) => k.toLowerCase().includes(m))) {
             out[k] = '***'
           } else {
             out[k] = traverse(v)
@@ -136,13 +143,13 @@ class LoggerUtils {
     }
   }
 
-  static _ts () {
+  static _ts() {
     const d = new Date()
     const pad = (n) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
   }
 
-  static _shouldEmit (level) {
+  static _shouldEmit(level) {
     const map = this._levelMap
     const cur = map[this._currentLevel] ?? map.warn
     const lv = map[level] ?? map.info
@@ -150,7 +157,7 @@ class LoggerUtils {
   }
 
   static _repeatCache = new Map()
-  static _shouldSkipRepeat (scope, level, message) {
+  static _shouldSkipRepeat(scope, level, message) {
     const key = `${scope}|${level}|${message}`
     const now = Date.now()
     const entry = this._repeatCache.get(key)
@@ -169,7 +176,7 @@ class LoggerUtils {
     return false
   }
 
-  static _emit (scope, level, message, meta, context) {
+  static _emit(scope, level, message, meta, context) {
     try {
       if (!this._shouldEmit(level)) return
       if (this._shouldSkipRepeat(scope, level, String(message))) return
@@ -178,39 +185,59 @@ class LoggerUtils {
       const sanitized = this._sanitize(meta)
       if (sanitized !== undefined) parts.push(sanitized)
       if (context && context.correlationId) parts.push({ correlationId: context.correlationId })
-      const fn = (level === 'error' && console.error)
-        ? console.error
-        : (level === 'warn' && console.warn)
-            ? console.warn
-            : (level === 'debug' && console.debug)
-                ? console.debug
-                : (console.info && (level === 'info' || level === 'log')) ? console.info : console.log
+      const methodMap = {
+        error: console.error,
+        warn: console.warn,
+        debug: console.debug,
+        info: console.info,
+        log: console.log,
+      }
+      const fn = methodMap[level] || console.log
       fn.apply(console, parts)
-    } catch (_) { }
+    } catch (_) {}
   }
 
-  static setGlobalCorrelationId (id) {
+  static setGlobalCorrelationId(id) {
     this._globalCorrelationId = id
   }
 
-  static getLogger (scope = 'app') {
+  static getLogger(scope = 'app') {
     const self = this
     const baseCtx = { correlationId: self._globalCorrelationId }
     const api = {
-      debug (m, meta) { self._emit(scope, 'debug', m, meta, baseCtx) },
-      info (m, meta) { self._emit(scope, 'info', m, meta, baseCtx) },
-      warn (m, meta) { self._emit(scope, 'warn', m, meta, baseCtx) },
-      error (m, meta) { self._emit(scope, 'error', m, meta, baseCtx) },
-      child (sub) { const s = sub ? `${scope}:${sub}` : scope; return self.getLogger(s) },
-      withCorrelation (id) {
+      debug(m, meta) {
+        self._emit(scope, 'debug', m, meta, baseCtx)
+      },
+      info(m, meta) {
+        self._emit(scope, 'info', m, meta, baseCtx)
+      },
+      warn(m, meta) {
+        self._emit(scope, 'warn', m, meta, baseCtx)
+      },
+      error(m, meta) {
+        self._emit(scope, 'error', m, meta, baseCtx)
+      },
+      child(sub) {
+        const s = sub ? `${scope}:${sub}` : scope
+        return self.getLogger(s)
+      },
+      withCorrelation(id) {
         const ctx = { correlationId: id }
         return {
-          debug (m, meta) { self._emit(scope, 'debug', m, meta, ctx) },
-          info (m, meta) { self._emit(scope, 'info', m, meta, ctx) },
-          warn (m, meta) { self._emit(scope, 'warn', m, meta, ctx) },
-          error (m, meta) { self._emit(scope, 'error', m, meta, ctx) }
+          debug(m, meta) {
+            self._emit(scope, 'debug', m, meta, ctx)
+          },
+          info(m, meta) {
+            self._emit(scope, 'info', m, meta, ctx)
+          },
+          warn(m, meta) {
+            self._emit(scope, 'warn', m, meta, ctx)
+          },
+          error(m, meta) {
+            self._emit(scope, 'error', m, meta, ctx)
+          },
         }
-      }
+      },
     }
     return api
   }

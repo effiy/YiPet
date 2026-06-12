@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>模块拓扑 · 架构图</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme-mono.css">
+<style>body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}</style>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}
+.container{max-width:1200px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#22d3ee;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:.875rem;margin-left:1.75rem}
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#475569;cursor:pointer;font-size:1.25rem;padding:.25rem .5rem;border-radius:.375rem}
+.toolbar-toggle:hover{color:#94a3b8;background:rgba(30,41,59,.5)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+.toolbar-actions button{background:rgba(30,41,59,.8);border:1px solid #334155;color:#94a3b8;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.toolbar-actions button:hover{background:rgba(51,65,85,.8);color:white;border-color:#475569}
+.diagram-container{background:rgba(15,23,42,.5);border-radius:1rem;border:1px solid #1e293b;padding:1.5rem;overflow-x:auto;margin-bottom:1.5rem}
+.diagram-container svg{width:100%;min-width:900px;display:block}
+.diagram-container pre.mermaid{background:transparent;color:#a9b1d6;font-size:.8rem;overflow-x:auto;margin-bottom:1rem}
+.diagram-container pre.mermaid svg{min-width:unset}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.cyan{background:#22d3ee}.card-dot.emerald{background:#34d399}
+.card-dot.violet{background:#a78bfa}.card-dot.amber{background:#fbbf24}
+.card-dot.rose{background:#fb7185}.card-dot.blue{background:#3B82F6}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#94a3b8;font-size:.75rem}
+.card li{margin-bottom:.375rem}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;font-size:0.76rem}
+.breadcrumb a{color:#7aa2f7;text-decoration:none;transition:color 0.15s}
+.breadcrumb a:hover{color:#fbbf24}
+.breadcrumb .bc-sep{color:#53576c;opacity:0.5;user-select:none}
+.breadcrumb .bc-current{color:#94a3b8;font-weight:500}
+.cross-nav{display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both}
+.cross-link{color:#7aa2f7;text-decoration:none;font-size:0.76rem;padding:3px 10px;border-radius:4px;transition:color 0.15s,background 0.15s}
+.cross-link:hover{color:#fbbf24;background:rgba(251,191,36,0.06)}
+.cross-link.on{color:#fbbf24;font-weight:600;cursor:default}
+.cross-sep{color:#475569;font-size:0.5rem;opacity:0.35;user-select:none}
+.footer{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+@media print{body{background:#020617;padding:1rem}.toolbar{display:none!important}}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 1 · 模块拓扑</span><span class="bc-sep">/</span><span class="bc-current">📐 架构图</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><span class="cross-link on">📐 架构</span><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>yipet-arch — 场景 1: 模块地图与拓扑</h1>
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button onclick="copySVG(this)">📋 Copy SVG</button>
+        <button onclick="downloadPNG(this)">🖼 PNG</button>
+        <button onclick="downloadSVG(this)">📄 SVG</button>
+      </div>
+      <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export">⋯</button>
+    </div>
+  </div>
+  <p class="subtitle">模块地图与拓扑 · vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="diagram-container">
+<pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["开发者想理解系统结构"]:::risk --&gt; READ["阅读模块全景拓扑图&lt;br/&gt;四层 subgraph + 依赖箭头"]:::exec
+    READ --&gt; UNDERSTAND["理解: core 是共享基础&lt;br/&gt;pet 是主模块 · ext 是后台&lt;br/&gt;faq 是数据模块"]:::note
+    UNDERSTAND --&gt; VERIFY["在 DevTools 验证全局符号&lt;br/&gt;typeof PET_CONFIG !== 'undefined'"]:::exec
+    VERIFY --&gt; CONFIDENT["确认模块加载正确&lt;br/&gt;可定位任意文件归属"]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph core["core/ — 共享基础设施（14 文件）"]
+        direction LR
+        CFG["config.js&lt;br/&gt;配置中心 · ENDPOINTS"]:::cross
+        TOKEN["token.js&lt;br/&gt;TokenManager · 三级降级"]:::cross
+        REQ["request.js&lt;br/&gt;RequestClient · fetch + 重试"]:::cross
+        APIMGR["ApiManager.js&lt;br/&gt;拦截器链 · X-Token 注入"]:::cross
+        SESSSVC["SessionService.js&lt;br/&gt;会话 CRUD 服务"]:::cross
+        FAQSVC["FaqService.js&lt;br/&gt;FAQ CRUD 服务"]:::cross
+        BOOTSTRAP["bootstrap.js&lt;br/&gt;StorageHelper · 位置计算"]:::cross
+    end
+
+    subgraph pet["modules/pet/ — 宠物主模块（32 文件）"]
+        subgraph petCore["核心类（1 文件）"]
+            PMCORE["petManager.core.js&lt;br/&gt;PetManager 类 800+ 行"]:::core
+        end
+        subgraph petInteract["交互层（5 文件）"]
+            PMUI["ui.js · drag.js · pet.js&lt;br/&gt;渲染 · 拖拽 · 外观"]:::exec
+            PMSTATE["state.js · events.js&lt;br/&gt;状态管理 · 事件总线"]:::exec
+        end
+        subgraph petData["数据层（12 文件）"]
+            PMAI["ai/ · api.js · prompt.js&lt;br/&gt;流式调用 · Prompt 构建"]:::exec
+            PMSESS["session/ · crud · filter · tag · batch&lt;br/&gt;会话增删改查 · 筛选 · 批量"]:::exec
+            PMFAQ["faq/ · faq.js · tags.js&lt;br/&gt;FAQ 管理 · 标签分类"]:::exec
+        end
+        subgraph petRender["渲染层（5 文件）"]
+            PMEDITOR["editor/ · 编辑器核心 · UI"]:::exec
+            PMMERMAID["mermaid/ · Mermaid 渲染 · UI"]:::exec
+            PMCHAT["chat.js · chatUi.js&lt;br/&gt;聊天逻辑 · 聊天 UI"]:::exec
+        end
+        subgraph petComponents["Vue 组件（9 文件）"]
+            direction LR
+            subgraph compChat["聊天核心"]
+                CHATWIN["ChatWindow · ChatMessages&lt;br/&gt;聊天窗口 · 消息展示"]:::core
+                CHATIN["ChatHeader · ChatInput&lt;br/&gt;聊天头部 · 输入框"]:::core
+            end
+            subgraph compSettings["设置面板"]
+                TOKENSET["TokenSettingsModal&lt;br/&gt;Token 配置"]:::core
+                AISET["AiSettingsModal&lt;br/&gt;AI 参数设置"]:::core
+            end
+            subgraph compData["数据管理"]
+                FAQMGR["FaqManager&lt;br/&gt;FAQ 管理面板"]:::core
+                SESSMGR["FaqTagManager&lt;br/&gt;SessionTagManager&lt;br/&gt;标签管理"]:::core
+            end
+        end
+    end
+
+    subgraph ext["modules/extension/ — 扩展后台（12 文件）"]
+        direction LR
+        SW["background/index.js&lt;br/&gt;Service Worker 入口"]:::core
+        ROUTER["messaging/ · messageRouter&lt;br/&gt;消息路由注册"]:::core
+        TABMSG["services/ · tabMessaging&lt;br/&gt;injectionService"]:::core
+        POPUP["popup/ · index.html + index.js&lt;br/&gt;PopupController 控制面板"]:::core
+    end
+
+    subgraph faq["modules/faq/ — FAQ 独立模块（2 文件）"]
+        FAQJS["content/faq.js · tags.js&lt;br/&gt;FAQ 内容 · 标签"]:::core
+    end
+
+    core --&gt; pet
+    core --&gt; ext
+    pet --&gt; faq
+    ext --&gt; pet
+
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart LR
+    subgraph iife["IIFE 模块注册模式"]
+        A["(function(root) { ... })&lt;br/&gt;(globalThis)"]:::exec
+        B["class ClassName { ... }"]:::exec
+        C["root.ClassName = ClassName"]:::exec
+        D["全局可访问"]:::exec
+        A --&gt; B --&gt; C --&gt; D
+    end
+
+    subgraph globals["全局命名空间关键符号"]
+        G1["PET_CONFIG · config"]:::core
+        G2["TokenManager · tokenManager"]:::core
+        G3["RequestClient · requestClient"]:::core
+        G4["PetManager · petManager"]:::core
+        G5["StorageHelper"]:::core
+        G6["MessageRouter (SW)"]:::core
+        G7["ApiManager · SessionService · FaqService"]:::core
+    end
+
+    iife --&gt; globals
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre>
+<pre class="mermaid">flowchart TB
+    subgraph phase1["Phase 1: 基础设施（Index 0–13）"]
+        direction LR
+        P1F1["config.js"]:::milestone
+        P1F2["md5.js"]:::milestone
+        P1F3["token.js"]:::milestone
+        P1F4["logger.js · error.js · request.js"]:::milestone
+        P1F5["ApiManager.js"]:::milestone
+        P1F6["SessionService.js · FaqService.js"]:::milestone
+    end
+
+    subgraph phase2["Phase 2: 第三方库 + 工具（Index 14–22）"]
+        direction LR
+        P2F1["marked.min.js · turndown.js"]:::exec
+        P2F2["vue.global.js"]:::exec
+        P2F3["bootstrap.js · domHelper.js"]:::exec
+    end
+
+    subgraph phase3["Phase 3: PetManager + 组件（Index 23–87）"]
+        direction LR
+        P3F1["petManager.core.js"]:::core
+        P3F2["32 个 petManager.*.js 子模块"]:::core
+        P3F3["9 个 Vue 组件 index.js"]:::core
+        P3F4["faq.js · tags.js"]:::core
+    end
+
+    phase1 --&gt; phase2 --&gt; phase3
+
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot cyan"></div><h3>场景信息</h3></div>
+    <ul>
+      <li><b>场景:</b> 1 · 模块地图与拓扑</li>
+      <li><b>故事:</b> yipet-arch · yipet-arch — 项目技术架构故事</li>
+      <li><b>版本:</b> vv2.0.0</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-dot emerald"></div><h3>数据源</h3></div>
+    <ul>
+      <li><b>场景文档:</b> index.md §0 技术评审</li>
+      <li><b>生成日期:</b> 2026-06-06</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark'})</script>
+<script>
+function copySVG(btn){const svg=document.querySelector('.diagram-container svg').outerHTML;navigator.clipboard.writeText(svg).then(()=>{btn.textContent='✅ Copied';setTimeout(()=>btn.textContent='📋 Copy SVG',1500)})}
+function downloadSVG(btn){const svg=document.querySelector('.diagram-container svg').outerHTML;const b=new Blob([svg],{type:'image/svg+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='yipet-arch-scene1-architecture.svg';a.click();btn.textContent='✅ Downloaded';setTimeout(()=>btn.textContent='📄 SVG',1500)}
+function downloadPNG(btn){if(typeof html2canvas==='undefined'){alert('html2canvas not loaded');return}const el=document.querySelector('.diagram-container');html2canvas(el,{backgroundColor:'#020617'}).then(c=>{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='yipet-arch-scene1-architecture.png';a.click();btn.textContent='✅ Downloaded';setTimeout(()=>btn.textContent='🖼 PNG',1500)})}
+</script>
+</body>
+</html>

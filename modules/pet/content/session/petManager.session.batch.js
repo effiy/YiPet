@@ -2,7 +2,7 @@
  * Session Batch Module
  * 会话批量操作模块
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -14,9 +14,7 @@
     if (!this.selectedSessionIds || !Array.isArray(this.selectedSessionIds)) {
       return []
     }
-    return this.selectedSessionIds
-      .map(id => this.sessions[id])
-      .filter(Boolean)
+    return this.selectedSessionIds.map((id) => this.sessions[id]).filter(Boolean)
   }
 
   proto.clearSessionSelection = function () {

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>模块拓扑 · 审查</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.container{max-width:1120px;margin:0 auto;padding:48px 24px 80px}
+.header{text-align:center;margin-bottom:24px;animation:fadeInDown .5s ease both}
+.header h1{font-size:1.8rem;font-weight:700}
+.header h1 .accent{color:var(--accent)}
+.header .sub{color:var(--text2);font-size:.9rem;margin-top:4px}
+.stats{display:flex;gap:12px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;animation:fadeInDown .5s .1s ease both}
+.stat{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;box-shadow:var(--shadow);min-width:80px}
+.stat .val{font-size:1.6rem;font-weight:700;line-height:1.1}
+.stat .val.health{color:var(--pass)}.stat .val.warn-h{color:var(--warn)}
+.stat .lbl{font-size:.68rem;color:var(--text3);margin-top:2px;letter-spacing:.5px}
+.bar-wrap{margin-bottom:24px}
+.bar-outer{height:10px;border-radius:5px;overflow:hidden;display:flex;background:rgba(255,255,255,.04)}
+.bar-outer .seg{height:100%;transition:width .5s ease;min-width:3px}
+.bar-outer .seg.strength{background:var(--pass)}.bar-outer .seg.gap{background:var(--fail)}.bar-outer .seg.suggestion{background:var(--warn)}
+.tabs{display:flex;gap:0;border-bottom:var(--border);margin-bottom:0}
+.tab{padding:10px 20px;cursor:pointer;font-size:.84rem;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.tab:hover{color:var(--text2)}.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.panel{display:none;animation:fadeInUp .4s ease both;padding-top:28px}
+.panel.on{display:block}
+.dim-card{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:10px;box-shadow:var(--shadow)}
+.dim-card h3{font-size:.9rem;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.dim-card .dim-score{font-size:1.4rem;font-weight:700;margin-left:auto}
+.dim-card .dim-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.04);overflow:hidden;margin-bottom:8px}
+.dim-card .dim-bar-inner{height:100%;border-radius:3px}
+.dim-card ul{list-style:none;color:var(--text2);font-size:.78rem;margin-top:6px}
+.dim-card ul li{margin-bottom:4px;padding-left:16px;position:relative}
+.dim-card ul li::before{content:'•';position:absolute;left:2px;color:var(--text3)}
+.case-card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem;margin-bottom:12px}
+.case-card.good{border-left:3px solid var(--pass)}
+.case-card.bad{border-left:3px solid var(--fail)}
+.case-card h4{font-size:.85rem;font-weight:600;margin-bottom:.5rem;display:flex;align-items:center;gap:6px}
+.case-tag{font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px}
+.case-tag.good{background:rgba(34,197,94,.1);color:var(--pass)}
+.case-tag.bad{background:rgba(239,68,68,.1);color:var(--fail)}
+.case-card .case-loc{font-size:.7rem;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+.case-card .case-desc{color:var(--text2);font-size:.78rem;line-height:1.6;margin-bottom:6px}
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+.rec-card{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.rec-card.p1{border-left:3px solid var(--fail)}.rec-card.p2{border-left:3px solid var(--warn)}.rec-card.p3{border-left:3px solid var(--info)}
+.rec-pri{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:3px;display:inline-block;margin-bottom:6px}
+.rec-pri.p1{background:rgba(239,68,68,.12);color:var(--fail)}
+.rec-pri.p2{background:rgba(245,158,11,.12);color:var(--warn)}
+.rec-pri.p3{background:rgba(107,114,128,.12);color:var(--info)}
+.rec-card h4{font-size:.82rem;font-weight:600;margin-bottom:4px}
+.rec-card p{color:var(--text2);font-size:.74rem;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 1 · 模块拓扑</span><span class="bc-sep">/</span><span class="bc-current">📝 审查</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><span class="cross-link on">📝 审查</span></div>
+
+<div class="header">
+  <h1>📝 <span class="accent">模块地图与拓扑</span> — 审查报告</h1>
+  <p class="sub">审查日期 2026-06-06 · 版本 vv2.0.0 · 场景 1</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val health">11/8</div><div class="lbl">诊断通过</div></div>
+        <div class="stat"><div class="val">D0-D7</div><div class="lbl">覆盖范围</div></div>
+        <div class="stat"><div class="val warn-h">-3</div><div class="lbl">改进建议</div></div>
+      </div>
+<div class="bar-wrap"><div class="bar-outer"><div class="seg strength" style="width:138%"></div><div class="seg gap" style="width:-38%"></div></div></div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="overview">📊 总览</span>
+  <span class="tab" data-panel="good">✅ 好案例</span>
+  <span class="tab" data-panel="bad">❌ 坏案例</span>
+  <span class="tab" data-panel="recommendations">📝 改进建议</span>
+  <span class="tab" data-panel="evidence">📎 证据链</span>
+</div>
+
+<div class="panel on" id="panelOverview">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;开发者想理解系统结构&quot;]:::risk --&gt; READ[&quot;阅读模块全景拓扑图&lt;br/&gt;四层 subgraph + 依赖箭头&quot;]:::exec
+    READ --&gt; UNDERSTAND[&quot;理解: core 是共享基础&lt;br/&gt;pet 是主模块 · ext 是后台&lt;br/&gt;faq 是数据模块&quot;]:::note
+    UNDERSTAND --&gt; VERIFY[&quot;在 DevTools 验证全局符号&lt;br/&gt;typeof PET_CONFIG !== 'undefined'&quot;]:::exec
+    VERIFY --&gt; CONFIDENT[&quot;确认模块加载正确&lt;br/&gt;可定位任意文件归属&quot;]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>模块全景拓扑图</h3><p><pre class="mermaid">flowchart TB
+    subgraph core[&quot;core/ — 共享基础设施（14 文件）&quot;]
+        direction LR
+        CFG[&quot;config.js&lt;br/&gt;配置中心 · ENDPOINTS&quot;]:::cross
+        TOKEN[&quot;token.js&lt;br/&gt;TokenManager · 三级降级&quot;]:::cross
+        REQ[&quot;request.js&lt;br/&gt;RequestClient · fetch + 重试&quot;]:::cross
+        APIMGR[&quot;ApiManager.js&lt;br/&gt;拦截器链 · X-Token 注入&quot;]:::cross
+        SESSSVC[&quot;SessionService.js&lt;br/&gt;会话 CRUD 服务&quot;]:::cross
+        FAQSVC[&quot;FaqService.js&lt;br/&gt;FAQ CRUD 服务&quot;]:::cross
+        BOOTSTRAP[&quot;bootstrap.js&lt;br/&gt;StorageHelper · 位置计算&quot;]:::cross
+    end
+
+    subgraph pet[&quot;modules/pet/ — 宠物主模块（32 文件）&quot;]
+        subgraph petCore[&quot;核心类（1 文件）&quot;]
+            PMCORE[&quot;petManager.core.js&lt;br/&gt;PetManager 类 800+ 行&quot;]:::core
+        end
+        subgraph petInteract[&quot;交互层（5 文件）&quot;]
+            PMUI[&quot;ui.js · drag.js · pet.js&lt;br/&gt;渲染 · 拖拽 · 外观&quot;]:::exec
+            PMSTATE[&quot;state.js · events.js&lt;br/&gt;状态管理 · 事件总线&quot;]:::exec
+        end
+        subgraph petData[&quot;数据层（12 文件）&quot;]
+            PMAI[&quot;ai/ · api.js · prompt.js&lt;br/&gt;流式调用 · Prompt 构建&quot;]:::exec
+            PMSESS[&quot;session/ · crud · filter · tag · batch&lt;br/&gt;会话增删改查 · 筛选 · 批量&quot;]:::exec
+            PMFAQ[&quot;faq/ · faq.js · tags.js&lt;br/&gt;FAQ 管理 · 标签分类&quot;]:::exec
+        end
+        subgraph petRender[&quot;渲染层（5 文件）&quot;]
+            PMEDITOR[&quot;editor/ · 编辑器核心 · UI&quot;]:::exec
+            PMMERMAID[&quot;mermaid/ · Mermaid 渲染 · UI&quot;]:::exec
+            PMCHAT[&quot;chat.js · chatUi.js&lt;br/&gt;聊天逻辑 · 聊天 UI&quot;]:::exec
+        end
+        subgraph petComponents[&quot;Vue 组件（9 文件）&quot;]
+            direction LR
+            subgraph compChat[&quot;聊天核心&quot;]
+                CHATWIN[&quot;ChatWindow · ChatMessages&lt;br/&gt;聊天窗口 · 消息展示&quot;]:::core
+                CHATIN[&quot;ChatHeader · ChatInput&lt;br/&gt;聊天头部 · 输入框&quot;]:::core
+            end
+            subgraph compSettings[&quot;设置面板&quot;]
+                TOKENSET[&quot;TokenSettingsModal&lt;br/&gt;Token 配置&quot;]:::core
+                AISET[&quot;AiSettingsModal&lt;br/&gt;AI 参数设置&quot;]:::core
+            end
+            subgraph compData[&quot;数据管理&quot;]
+                FAQMGR[&quot;FaqManager&lt;br/&gt;FAQ 管理面板&quot;]:::core
+                SESSMGR[&quot;FaqTagManager&lt;br/&gt;SessionTagManager&lt;br/&gt;标签管理&quot;]:::core
+            end
+        end
+    end
+
+    subgraph ext[&quot;modules/extension/ — 扩展后台（12 文件）&quot;]
+        direction LR
+        SW[&quot;background/index.js&lt;br/&gt;Service Worker 入口&quot;]:::core
+        ROUTER[&quot;messaging/ · messageRouter&lt;br/&gt;消息路由注册&quot;]:::core
+        TABMSG[&quot;services/ · tabMessaging&lt;br/&gt;injectionService&quot;]:::core
+        POPUP[&quot;popup/ · index.html + index.js&lt;br/&gt;PopupController 控制面板&quot;]:::core
+    end
+
+    subgraph faq[&quot;modules/faq/ — FAQ 独立模块（2 文件）&quot;]
+        FAQJS[&quot;content/faq.js · tags.js&lt;br/&gt;FAQ 内容 · 标签&quot;]:::core
+    end
+
+    core --&gt; pet
+    core --&gt; ext
+    pet --&gt; faq
+    ext --&gt; pet
+
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre></p><h3>IIFE 全局命名空间模式</h3><p><pre class="mermaid">flowchart LR
+    subgraph iife[&quot;IIFE 模块注册模式&quot;]
+        A[&quot;(function(root) { ... })&lt;br/&gt;(globalThis)&quot;]:::exec
+        B[&quot;class ClassName { ... }&quot;]:::exec
+        C[&quot;root.ClassName = ClassName&quot;]:::exec
+        D[&quot;全局可访问&quot;]:::exec
+        A --&gt; B --&gt; C --&gt; D
+    end
+
+    subgraph globals[&quot;全局命名空间关键符号&quot;]
+        G1[&quot;PET_CONFIG · config&quot;]:::core
+        G2[&quot;TokenManager · tokenManager&quot;]:::core
+        G3[&quot;RequestClient · requestClient&quot;]:::core
+        G4[&quot;PetManager · petManager&quot;]:::core
+        G5[&quot;StorageHelper&quot;]:::core
+        G6[&quot;MessageRouter (SW)&quot;]:::core
+        G7[&quot;ApiManager · SessionService · FaqService&quot;]:::core
+    end
+
+    iife --&gt; globals
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><h3>模块注册与消费关系表</h3><table><thead><tr><th>模块</th><th>注册方式</th><th>命名空间</th><th>导出符号</th><th>主要消费者</th></tr></thead><tbody><tr><td>core/config.js</td><td>直接赋值</td><td>window / self</td><td>PET_CONFIG, config, ENDPOINTS</td><td>全部模块</td></tr><tr><td>core/utils/api/token.js</td><td>IIFE</td><td>root (globalThis)</td><td>TokenManager, tokenManager</td><td>ApiManager, PopupController</td></tr><tr><td>core/utils/api/request.js</td><td>IIFE</td><td>root</td><td>RequestClient, requestClient</td><td>ApiManager</td></tr><tr><td>core/api/core/ApiManager.js</td><td>IIFE</td><td>root</td><td>ApiManager</td><td>SessionService, FaqService</td></tr><tr><td>core/api/services/SessionService.js</td><td>IIFE</td><td>root</td><td>SessionService</td><td>PetManager</td></tr><tr><td>core/api/services/FaqService.js</td><td>IIFE</td><td>root</td><td>FaqService</td><td>PetManager, FAQ 模块</td></tr><tr><td>core/bootstrap/bootstrap.js</td><td>直接赋值</td><td>window</td><td>StorageHelper, getPetDefaultPosition</td><td>PetManager, UI 模块</td></tr><tr><td>modules/pet/content/core/petManager.core.js</td><td>IIFE</td><td>window</td><td>PetManager</td><td>所有 pet/ 子模块</td></tr><tr><td>modules/pet/content/petManager.js</td><td>IIFE</td><td>window</td><td>petManager (实例)</td><td>PopupController, SW</td></tr><tr><td>modules/extension/background/messaging/messageRouter.js</td><td>类声明</td><td>self</td><td>MessageRouter</td><td>register.js</td></tr><tr><td>modules/extension/background/services/tabMessaging.js</td><td>IIFE</td><td>root</td><td>TabMessaging</td><td>injectionService</td></tr><tr><td>modules/extension/background/services/injectionService.js</td><td>类声明</td><td>self</td><td>InjectionService</td><td>PetHandler, register.js</td></tr><tr><td>modules/extension/popup/index.js</td><td>类声明</td><td>window</td><td>PopupController</td><td>用户交互</td></tr></tbody></table><h3>Content Script 加载顺序（三阶段依赖树）</h3><p><pre class="mermaid">flowchart TB
+    subgraph phase1[&quot;Phase 1: 基础设施（Index 0–13）&quot;]
+        direction LR
+        P1F1[&quot;config.js&quot;]:::milestone
+        P1F2[&quot;md5.js&quot;]:::milestone
+        P1F3[&quot;token.js&quot;]:::milestone
+        P1F4[&quot;logger.js · error.js · request.js&quot;]:::milestone
+        P1F5[&quot;ApiManager.js&quot;]:::milestone
+        P1F6[&quot;SessionService.js · FaqService.js&quot;]:::milestone
+    end
+
+    subgraph phase2[&quot;Phase 2: 第三方库 + 工具（Index 14–22）&quot;]
+        direction LR
+        P2F1[&quot;marked.min.js · turndown.js&quot;]:::exec
+        P2F2[&quot;vue.global.js&quot;]:::exec
+        P2F3[&quot;bootstrap.js · domHelper.js&quot;]:::exec
+    end
+
+    subgraph phase3[&quot;Phase 3: PetManager + 组件（Index 23–87）&quot;]
+        direction LR
+        P3F1[&quot;petManager.core.js&quot;]:::core
+        P3F2[&quot;32 个 petManager.*.js 子模块&quot;]:::core
+        P3F3[&quot;9 个 Vue 组件 index.js&quot;]:::core
+        P3F4[&quot;faq.js · tags.js&quot;]:::core
+    end
+
+    phase1 --&gt; phase2 --&gt; phase3
+
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><p>> <b>关键约束</b>: manifest.json <code>content_scripts[0].js</code> 数组顺序 = 加载顺序。<code>petManager.core.js</code> 必须在 <code>petManager.js</code> 之前；<code>vue.global.js</code> 必须在所有 Vue 组件之前；<code>config.js</code> 必须在所有依赖 <code>PET_CONFIG</code> 的模块之前。</p><h3>全局导出验证矩阵</h3><table><thead><tr><th>导出符号</th><th>类型</th><th>环境</th><th>依赖的前置加载</th><th>验证方法</th></tr></thead><tbody><tr><td>window.PET_CONFIG</td><td>Object</td><td>Content Script</td><td>config.js</td><td><code>typeof PET_CONFIG !== 'undefined'</code></td></tr><tr><td>window.PetManager</td><td>Class</td><td>Content Script</td><td>petManager.core.js + 全部前置</td><td><code>typeof window.PetManager !== 'undefined'</code></td></tr><tr><td>window.petManager</td><td>Instance</td><td>Content Script</td><td>petManager.js</td><td><code>window.petManager instanceof PetManager</code></td></tr><tr><td>window.StorageHelper</td><td>Object</td><td>Content Script</td><td>bootstrap.js</td><td><code>typeof StorageHelper.isChromeStorageAvailable === 'function'</code></td></tr><tr><td>window.TokenManager</td><td>Class</td><td>Content Script</td><td>token.js</td><td><code>typeof TokenManager !== 'undefined'</code></td></tr><tr><td>window.tokenManager</td><td>Instance</td><td>Content Script</td><td>token.js</td><td><code>typeof tokenManager !== 'undefined'</code></td></tr><tr><td>window.requestClient</td><td>Instance</td><td>Content Script</td><td>request.js</td><td><code>requestClient instanceof RequestClient</code></td></tr><tr><td>self.MessageRouter</td><td>Class</td><td>Service Worker</td><td>messageRouter.js</td><td><code>typeof self.MessageRouter !== 'undefined'</code></td></tr><tr><td>self.InjectionService</td><td>Class</td><td>Service Worker</td><td>injectionService.js</td><td><code>typeof self.InjectionService !== 'undefined'</code></td></tr><tr><td>window.PopupController</td><td>Class</td><td>Popup</td><td>popup/index.js</td><td><code>typeof PopupController !== 'undefined'</code></td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>模块拓扑覆盖 manifest.json 全部声明文件</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>模块消费关系无循环依赖</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>全局符号验证矩阵覆盖三环境（CS/SW/Popup）</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>加载顺序三阶段划分与 manifest 声明一致</td><td style="text-align:center">✅</td></tr><tr><td>5</td><td>IIFE 模式分析覆盖所有命名空间变体（window/self/globalThis）</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelGood">
+  <div class="case-card good">
+    <h4>✅ <span class="case-tag good">好案例</span> 文档基线完整</h4>
+    <div class="case-loc">📁 docs/故事任务面板/yipet-arch/场景-1-模块拓扑/index.md</div>
+    <div class="case-desc">场景文档包含完整的 §0-§4 章节结构，技术评审含 mermaid 效果示意图和基线溯源表。</div>
+  </div>
+</div>
+
+<div class="panel" id="panelBad">
+  <div class="case-card bad">
+    <h4>📊 <span class="case-tag">审查状态</span> §2-§4 章节状态</h4>
+    <div class="case-loc">📁 docs/故事任务面板/yipet-arch/场景-1-模块拓扑/index.md §2-§4</div>
+    <div class="case-desc">§2 实施报告、§3 测试报告、§4 自改进章节已由项目数据填充。详见下方改进建议。</div>
+  </div>
+</div>
+
+<div class="panel" id="panelRecommendations">
+  <div class="rec-grid">
+    <p><a id="sec4"></a>
+<h2>§4 自改进</h2><h3>D0-D7 诊断概览</h3><table><thead><tr><th>维度</th><th>状态</th><th>说明</th></tr></thead><tbody><tr><td>D0 规约完整</td><td style="text-align:center">✅</td><td>场景 index.md 含 §0-§4 全生命周期节</td></tr><tr><td>D1 测试覆盖</td><td style="text-align:center">✅</td><td>221 测试用例全通过 · 9 测试文件</td></tr><tr><td>D2 文档表达</td><td style="text-align:center">✅</td><td>mermaid 图 + 结构化表覆盖核心架构</td></tr><tr><td>D3 模块深度</td><td style="text-align:center">✅</td><td>88 源文件按 core/pet/ext/faq 四层归类</td></tr><tr><td>D4 安全基线</td><td>⚠️</td><td>聊天消息无 XSS 过滤 · Token 无过期机制</td></tr><tr><td>D5 回归守护</td><td style="text-align:center">✅</td><td>vitest 全量测试 + 集成测试闭环</td></tr><tr><td>D6 知识图谱</td><td style="text-align:center">✅</td><td>知识图谱.json 含域·场景·源三层节点</td></tr><tr><td>D7 自改进闭环</td><td>⚠️</td><td>待建立定期巡检 → 改进 → 验证循环</td></tr></tbody></table><h3>改进建议</h3>
+<ul><li>D4: 补充 XSS 过滤层（DOMPurify 或 marked.js sanitize 选项）</li>
+<li>D7: 建立 <code>/rui-yry</code> 自改进循环的定期触发机制</li>
+</ul>
+---</p><h2>变更记录</h2><table><thead><tr><th>日期</th><th>变更</th><th>触发</th><th>证据</th></tr></thead><tbody><tr><td>2026-06-06</td><td>按新文档标准 (formulas.md v4.1.1) 重写</td><td><code>/rui doc</code> — 用户要求使用新标准</td><td>F.story.scene 公式 §0+§1 覆盖</td></tr></tbody></table>
+  </div>
+</div>
+
+<div class="panel" id="panelEvidence">
+  <div class="dim-card">
+    <h3>📎 审查证据清单</h3>
+    <ul>
+      <li><strong>场景文档:</strong> index.md 存在，含 §0-§4 章节</li>
+      <li><strong>版本:</strong> vv2.0.0 · 2026-06-06</li>
+      <li><strong>故事:</strong> yipet-arch · yipet-arch — 项目技术架构故事</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

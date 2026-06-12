@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint -- --max-warnings=0
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run format
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:coverage
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: 'npm'
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+
+  summary:
+    needs: [lint, format, test, coverage, audit, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          echo "lint:    ${{ needs.lint.result }}"
+          echo "format:  ${{ needs.format.result }}"
+          echo "test:    ${{ needs.test.result }}"
+          echo "coverage:${{ needs.coverage.result }}"
+          echo "audit:   ${{ needs.audit.result }}"
+          echo "build:   ${{ needs.build.result }}"
+          ${{ needs.lint.result == 'success' && needs.format.result == 'success' && needs.test.result == 'success' && needs.coverage.result == 'success' && needs.audit.result == 'success' && needs.build.result == 'success' }} || exit 1

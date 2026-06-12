@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>集成测试 · 架构图</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme-mono.css">
+<style>body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}</style>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}
+.container{max-width:1200px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#22d3ee;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:.875rem;margin-left:1.75rem}
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#475569;cursor:pointer;font-size:1.25rem;padding:.25rem .5rem;border-radius:.375rem}
+.toolbar-toggle:hover{color:#94a3b8;background:rgba(30,41,59,.5)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+.toolbar-actions button{background:rgba(30,41,59,.8);border:1px solid #334155;color:#94a3b8;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.toolbar-actions button:hover{background:rgba(51,65,85,.8);color:white;border-color:#475569}
+.diagram-container{background:rgba(15,23,42,.5);border-radius:1rem;border:1px solid #1e293b;padding:1.5rem;overflow-x:auto;margin-bottom:1.5rem}
+.diagram-container svg{width:100%;min-width:900px;display:block}
+.diagram-container pre.mermaid{background:transparent;color:#a9b1d6;font-size:.8rem;overflow-x:auto;margin-bottom:1rem}
+.diagram-container pre.mermaid svg{min-width:unset}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.cyan{background:#22d3ee}.card-dot.emerald{background:#34d399}
+.card-dot.violet{background:#a78bfa}.card-dot.amber{background:#fbbf24}
+.card-dot.rose{background:#fb7185}.card-dot.blue{background:#3B82F6}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#94a3b8;font-size:.75rem}
+.card li{margin-bottom:.375rem}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;font-size:0.76rem}
+.breadcrumb a{color:#7aa2f7;text-decoration:none;transition:color 0.15s}
+.breadcrumb a:hover{color:#fbbf24}
+.breadcrumb .bc-sep{color:#53576c;opacity:0.5;user-select:none}
+.breadcrumb .bc-current{color:#94a3b8;font-weight:500}
+.cross-nav{display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both}
+.cross-link{color:#7aa2f7;text-decoration:none;font-size:0.76rem;padding:3px 10px;border-radius:4px;transition:color 0.15s,background 0.15s}
+.cross-link:hover{color:#fbbf24;background:rgba(251,191,36,0.06)}
+.cross-link.on{color:#fbbf24;font-weight:600;cursor:default}
+.cross-sep{color:#475569;font-size:0.5rem;opacity:0.35;user-select:none}
+.footer{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+@media print{body{background:#020617;padding:1rem}.toolbar{display:none!important}}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 5 · 集成测试</span><span class="bc-sep">/</span><span class="bc-current">📐 架构图</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><span class="cross-link on">📐 架构</span><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>yipet-self-test — 场景 5: 集成与回归测试</h1>
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button onclick="copySVG(this)">📋 Copy SVG</button>
+        <button onclick="downloadPNG(this)">🖼 PNG</button>
+        <button onclick="downloadSVG(this)">📄 SVG</button>
+      </div>
+      <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export">⋯</button>
+    </div>
+  </div>
+  <p class="subtitle">集成与回归测试 · vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="diagram-container">
+<pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["修改 ApiManager 拦截器"]:::risk --&gt; UNIT["单元测试通过"]:::exec
+    UNIT --&gt; INT["npx vitest run&lt;br/&gt;tests/integration/"]:::exec
+    INT --&gt; CHECK{"集成链路&lt;br/&gt;是否通过?"}
+    CHECK --&gt;|"✅"| CONF["无回归，提交变更"]:::goal
+    CHECK --&gt;|"❌"| FIX["检查模块间契约&lt;br/&gt;修复破坏性变更"]:::milestone
+    FIX --&gt; INT
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph pipeline["模块联调链路"]
+        T["TokenManager&lt;br/&gt;获取 Token"]:::core --&gt; A["ApiManager&lt;br/&gt;注入 X-Token 头"]:::core
+        A --&gt; R["RequestClient&lt;br/&gt;发送 fetch 请求"]:::core
+        R --&gt; M["mockFetch&lt;br/&gt;返回模拟响应"]:::note
+        M --&gt; R2["响应拦截器&lt;br/&gt;解析 JSON"]:::core
+    end
+
+    subgraph sw["Service Worker 路由"]
+        MSG["chrome.runtime.sendMessage&lt;br/&gt;{ action, data }"]:::exec --&gt; SW["MessageRouter.handle()"]:::core
+        SW --&gt; H["具体 Handler&lt;br/&gt;处理并返回"]:::core
+    end
+
+    subgraph vue["Vue 组件渲染"]
+        VUE3["Vue 3 global mount"]:::cross --&gt; CW["ChatWindow 组件"]:::core
+        CW --&gt; DOM["jsdom DOM 验证"]:::note
+    end
+
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart TB
+    subgraph pipeline["API 管理器集成"]
+        CFG["config.js"] --&gt; LOG["logger.js"]
+        LOG --&gt; ERR["error.js"]
+        ERR --&gt; TOK["token.js"]
+        TOK --&gt; REQ["request.js"]
+        REQ --&gt; API["ApiManager.js"]
+        API --&gt; SESS["SessionService.js"]
+        API --&gt; FAQ["FaqService.js"]
+    end
+    subgraph sw["SW 消息路由"]
+        MR["messageRouter.js"] --&gt; REG["register.js"]
+        REG --&gt; PH["petHandler.js"]
+        REG --&gt; TH["tabHandler.js"]
+    end
+    subgraph vue["Vue 组件"]
+        CW["ChatWindow"] --&gt; CM["ChatMessages"]
+        CW --&gt; CI["ChatInput"]
+    end</pre>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot cyan"></div><h3>场景信息</h3></div>
+    <ul>
+      <li><b>场景:</b> 5 · 集成与回归测试</li>
+      <li><b>故事:</b> yipet-self-test · yipet-self-test — 项目自主测试方案</li>
+      <li><b>版本:</b> vv2.0.0</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-dot emerald"></div><h3>数据源</h3></div>
+    <ul>
+      <li><b>场景文档:</b> index.md §0 技术评审</li>
+      <li><b>生成日期:</b> 2026-06-06</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark'})</script>
+<script>
+function copySVG(btn){const svg=document.querySelector('.diagram-container svg').outerHTML;navigator.clipboard.writeText(svg).then(()=>{btn.textContent='✅ Copied';setTimeout(()=>btn.textContent='📋 Copy SVG',1500)})}
+function downloadSVG(btn){const svg=document.querySelector('.diagram-container svg').outerHTML;const b=new Blob([svg],{type:'image/svg+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='yipet-self-test-scene5-architecture.svg';a.click();btn.textContent='✅ Downloaded';setTimeout(()=>btn.textContent='📄 SVG',1500)}
+function downloadPNG(btn){if(typeof html2canvas==='undefined'){alert('html2canvas not loaded');return}const el=document.querySelector('.diagram-container');html2canvas(el,{backgroundColor:'#020617'}).then(c=>{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='yipet-self-test-scene5-architecture.png';a.click();btn.textContent='✅ Downloaded';setTimeout(()=>btn.textContent='🖼 PNG',1500)})}
+</script>
+</body>
+</html>

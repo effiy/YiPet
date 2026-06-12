@@ -3,15 +3,15 @@
  * 提供会话相关的API操作，包括CRUD、搜索、批量操作等
  */
 
-(function (root) {
+;(function (root) {
   class SessionService extends ApiManager {
-    constructor (baseUrl, options = {}) {
+    constructor(baseUrl, options = {}) {
       super(baseUrl, {
         ...options,
         logger: {
           ...options.logger,
-          prefix: '[SessionService]'
-        }
+          prefix: '[SessionService]',
+        },
       })
 
       // 批量保存配置
@@ -24,20 +24,20 @@
       this.stats = {
         ...this.stats,
         saveCount: 0,
-        queueSize: 0
+        queueSize: 0,
       }
     }
 
     /**
      * 获取会话列表
      */
-    async getSessionsList (options = {}) {
+    async getSessionsList(options = {}) {
       try {
         const params = {
           cname: 'sessions',
           limit: options.limit || 10000,
           sort: { updatedAt: -1 },
-          ...options.filter
+          ...options.filter,
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params)
@@ -53,7 +53,7 @@
     /**
      * 获取单个会话
      */
-    async getSession (sessionKey) {
+    async getSession(sessionKey) {
       if (!sessionKey) {
         return null
       }
@@ -62,7 +62,7 @@
         const params = {
           cname: 'sessions',
           filter: { key: sessionKey },
-          limit: 1
+          limit: 1,
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params)
@@ -79,7 +79,7 @@
     /**
      * 创建会话
      */
-    async createSession (sessionData) {
+    async createSession(sessionData) {
       if (!sessionData || typeof sessionData !== 'object') {
         throw new Error('会话数据无效')
       }
@@ -91,22 +91,22 @@
         method_name: 'create_document',
         parameters: {
           cname: 'sessions',
-          data: normalized
-        }
+          data: normalized,
+        },
       }
 
       const result = await this.post('/', payload)
 
       return {
         success: true,
-        data: result
+        data: result,
       }
     }
 
     /**
      * 保存会话（立即保存）
      */
-    async saveSession (sessionData) {
+    async saveSession(sessionData) {
       if (!sessionData || !sessionData.key) {
         throw new Error('会话数据无效：缺少 key 字段')
       }
@@ -128,8 +128,8 @@
             parameters: {
               cname: 'sessions',
               key: sessionKey,
-              data: normalized
-            }
+              data: normalized,
+            },
           }
 
           result = await this.post('/', payload)
@@ -144,7 +144,7 @@
 
         return {
           success: true,
-          data: result
+          data: result,
         }
       } catch (error) {
         this.logger.error('保存会话失败:', error.message)
@@ -155,7 +155,7 @@
     /**
      * 批量保存会话（添加到队列）
      */
-    queueSave (sessionData) {
+    queueSave(sessionData) {
       if (!sessionData || !sessionData.key) {
         this.logger.warn('queueSave: sessionData 缺少 key 字段，跳过')
         return
@@ -164,7 +164,7 @@
       // 添加到队列
       this.saveQueue.set(sessionData.key, {
         ...sessionData,
-        queuedAt: Date.now()
+        queuedAt: Date.now(),
       })
 
       // 启动批量保存定时器
@@ -178,7 +178,7 @@
     /**
      * 处理保存队列
      */
-    async _processSaveQueue () {
+    async _processSaveQueue() {
       if (this.saveQueue.size === 0) {
         this.saveTimer = null
         return
@@ -187,29 +187,28 @@
       this.saveTimer = null
 
       // 获取待保存的会话
-      const sessionsToSave = Array.from(this.saveQueue.values())
-        .slice(0, this.saveBatchSize)
+      const sessionsToSave = Array.from(this.saveQueue.values()).slice(0, this.saveBatchSize)
 
-      const sessionKeys = sessionsToSave.map(s => s.key).filter(Boolean)
+      const sessionKeys = sessionsToSave.map((s) => s.key).filter(Boolean)
 
       // 从队列中移除
-      sessionKeys.forEach(key => this.saveQueue.delete(key))
+      sessionKeys.forEach((key) => this.saveQueue.delete(key))
 
       // 批量保存
-      const savePromises = sessionsToSave.map(sessionData =>
-        this.saveSession(sessionData).catch(error => {
+      const savePromises = sessionsToSave.map((sessionData) =>
+        this.saveSession(sessionData).catch((error) => {
           this.logger.warn(`批量保存会话 ${sessionData.key} 失败:`, error.message)
 
           // 保存失败时重新加入队列（限制重试次数）
           if (sessionData.key && (!sessionData.retryCount || sessionData.retryCount < 3)) {
             this.saveQueue.set(sessionData.key, {
               ...sessionData,
-              retryCount: (sessionData.retryCount || 0) + 1
+              retryCount: (sessionData.retryCount || 0) + 1,
             })
           }
 
           return null
-        })
+        }),
       )
 
       await Promise.all(savePromises)
@@ -225,7 +224,7 @@
     /**
      * 立即处理所有待保存的会话
      */
-    async flushSaveQueue () {
+    async flushSaveQueue() {
       // 清空定时器
       if (this.saveTimer) {
         clearTimeout(this.saveTimer)
@@ -241,7 +240,7 @@
     /**
      * 删除会话
      */
-    async deleteSession (sessionKey) {
+    async deleteSession(sessionKey) {
       if (!sessionKey) {
         throw new Error('会话 Key 无效')
       }
@@ -252,15 +251,15 @@
           method_name: 'delete_document',
           parameters: {
             cname: 'sessions',
-            key: sessionKey
-          }
+            key: sessionKey,
+          },
         }
 
         const result = await this.post('/', payload)
 
         return {
           success: true,
-          data: result
+          data: result,
         }
       } catch (error) {
         this.logger.error('删除会话失败:', error.message)
@@ -271,18 +270,18 @@
     /**
      * 批量删除会话
      */
-    async deleteSessions (sessionKeys) {
+    async deleteSessions(sessionKeys) {
       if (!sessionKeys || !Array.isArray(sessionKeys) || sessionKeys.length === 0) {
         throw new Error('会话 Key 列表无效')
       }
 
       try {
-        const deletePromises = sessionKeys.map(key => this.deleteSession(key))
+        const deletePromises = sessionKeys.map((key) => this.deleteSession(key))
         await Promise.all(deletePromises)
 
         return {
           success: true,
-          data: { deletedCount: sessionKeys.length }
+          data: { deletedCount: sessionKeys.length },
         }
       } catch (error) {
         this.logger.error('批量删除会话失败:', error.message)
@@ -293,23 +292,20 @@
     /**
      * 搜索会话
      */
-    async searchSessions (query, options = {}) {
+    async searchSessions(query, options = {}) {
       if (!query) {
         return []
       }
 
       try {
-        const resolvedOptions = typeof options === 'number' ? { limit: options } : (options || {})
+        const resolvedOptions = typeof options === 'number' ? { limit: options } : options || {}
         const params = {
           cname: 'sessions',
           filter: {
-            $or: [
-              { title: { $regex: query, $options: 'i' } },
-              { content: { $regex: query, $options: 'i' } }
-            ]
+            $or: [{ title: { $regex: query, $options: 'i' } }, { content: { $regex: query, $options: 'i' } }],
           },
           limit: resolvedOptions.limit || 10,
-          ...resolvedOptions.filter
+          ...resolvedOptions.filter,
         }
 
         const url = buildDatabaseUrl(this.baseUrl, 'query_documents', params)
@@ -322,14 +318,14 @@
       }
     }
 
-    async _request (url, options = {}) {
+    async _request(url, options = {}) {
       return this.request(url, options)
     }
 
     /**
      * 规范化会话数据
      */
-    _normalizeSessionData (sessionData) {
+    _normalizeSessionData(sessionData) {
       const normalized = {
         key: String(sessionData.key || ''),
         url: String(sessionData.url || ''),
@@ -340,7 +336,7 @@
         isFavorite: sessionData.isFavorite !== undefined ? Boolean(sessionData.isFavorite) : false,
         createdAt: this._normalizeTimestamp(sessionData.createdAt),
         updatedAt: this._normalizeTimestamp(sessionData.updatedAt),
-        lastAccessTime: this._normalizeTimestamp(sessionData.lastAccessTime)
+        lastAccessTime: this._normalizeTimestamp(sessionData.lastAccessTime),
       }
 
       return normalized
@@ -349,7 +345,7 @@
     /**
      * 规范化时间戳
      */
-    _normalizeTimestamp (timestamp) {
+    _normalizeTimestamp(timestamp) {
       if (!timestamp) {
         return Date.now()
       }
@@ -373,18 +369,18 @@
     /**
      * 获取统计信息
      */
-    getStats () {
+    getStats() {
       return {
         ...super.getStats(),
         saveCount: this.stats.saveCount,
-        queueSize: this.saveQueue.size
+        queueSize: this.saveQueue.size,
       }
     }
 
     /**
      * 销毁服务
      */
-    destroy () {
+    destroy() {
       if (this.saveTimer) {
         clearTimeout(this.saveTimer)
         this.saveTimer = null
@@ -396,4 +392,4 @@
   }
 
   root.SessionService = SessionService
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

@@ -5,10 +5,10 @@
 
 class InjectionService {
   /**
-     * 注入 content scripts 需要的文件列表（必须按依赖顺序）
-     * 注意：这里要与 manifest.json 里的 content_scripts.js 保持一致，
-     * 否则可能出现 window.PetManager 未定义等问题。
-     */
+   * 注入 content scripts 需要的文件列表（必须按依赖顺序）
+   * 注意：这里要与 manifest.json 里的 content_scripts.js 保持一致，
+   * 否则可能出现 window.PetManager 未定义等问题。
+   */
   static CONTENT_SCRIPT_FILES = [
     'core/config.js',
     'libs/md5.js',
@@ -77,20 +77,20 @@ class InjectionService {
     'modules/pet/content/petManager.media.js',
     'modules/pet/content/petManager.message.js',
     'modules/pet/content/petManager.js',
-    'core/bootstrap/index.js'
+    'core/bootstrap/index.js',
   ]
 
   /**
-     * 直接注入content script到指定标签页
-     * @param {number} tabId - 标签页ID
-     * @returns {Promise<boolean>} 是否注入成功
-     */
-  async injectContentScript (tabId) {
+   * 直接注入content script到指定标签页
+   * @param {number} tabId - 标签页ID
+   * @returns {Promise<boolean>} 是否注入成功
+   */
+  async injectContentScript(tabId) {
     try {
       console.log('直接注入content script到标签页:', tabId)
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: InjectionService.CONTENT_SCRIPT_FILES
+        files: InjectionService.CONTENT_SCRIPT_FILES,
       })
       console.log('Content script 注入成功')
       return true
@@ -101,12 +101,12 @@ class InjectionService {
   }
 
   /**
-     * 向指定标签页发送消息（必要时自动注入 content script 并重试一次）
-     * @param {number} tabId
-     * @param {Object} message
-     * @returns {Promise<{ok: boolean, response?: any, error?: string, injected?: boolean}>}
-     */
-  async sendMessageToTabWithAutoInject (tabId, message) {
+   * 向指定标签页发送消息（必要时自动注入 content script 并重试一次）
+   * @param {number} tabId
+   * @param {Object} message
+   * @returns {Promise<{ok: boolean, response?: any, error?: string, injected?: boolean}>}
+   */
+  async sendMessageToTabWithAutoInject(tabId, message) {
     const helper = typeof self !== 'undefined' ? self.TabMessaging : null
     if (!helper || typeof helper.sendMessageToTabWithAutoInject !== 'function') {
       return { ok: false, error: 'TabMessaging 不可用' }
@@ -114,16 +114,19 @@ class InjectionService {
 
     return await helper.sendMessageToTabWithAutoInject(tabId, message, {
       injectContentScript: (id) => this.injectContentScript(id),
-      retryDelayMs: (typeof self !== 'undefined' && self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.TIMING) ? self.PET_CONFIG.constants.TIMING.INJECT_PET_DELAY : 1000
+      retryDelayMs:
+        typeof self !== 'undefined' && self.PET_CONFIG && self.PET_CONFIG.constants && self.PET_CONFIG.constants.TIMING
+          ? self.PET_CONFIG.constants.TIMING.INJECT_PET_DELAY
+          : 1000,
     })
   }
 
   /**
-     * 向指定标签页注入宠物
-     * 如果content script未加载，会先尝试注入content script
-     * @param {number} tabId - 标签页ID
-     */
-  injectPetToTab (tabId) {
+   * 向指定标签页注入宠物
+   * 如果content script未加载，会先尝试注入content script
+   * @param {number} tabId - 标签页ID
+   */
+  injectPetToTab(tabId) {
     console.log('尝试注入宠物到标签页:', tabId)
     this.sendMessageToTabWithAutoInject(tabId, { action: 'initPet' }).then((result) => {
       if (!result.ok) {
@@ -135,10 +138,10 @@ class InjectionService {
   }
 
   /**
-     * 从指定标签页移除宠物
-     * @param {number} tabId - 标签页ID
-     */
-  removePetFromTab (tabId) {
+   * 从指定标签页移除宠物
+   * @param {number} tabId - 标签页ID
+   */
+  removePetFromTab(tabId) {
     const helper = typeof self !== 'undefined' ? self.TabMessaging : null
     if (!helper || typeof helper.sendMessageToTab !== 'function') {
       console.error('无法从标签页移除宠物：TabMessaging 不可用')
@@ -152,10 +155,10 @@ class InjectionService {
   }
 
   /**
-     * 获取所有浏览器标签页
-     * @returns {Promise<Array>} 标签页数组
-     */
-  async getAllBrowserTabs () {
+   * 获取所有浏览器标签页
+   * @returns {Promise<Array>} 标签页数组
+   */
+  async getAllBrowserTabs() {
     return new Promise((resolve) => {
       chrome.tabs.query({}, (tabs) => {
         resolve(tabs)
@@ -164,14 +167,14 @@ class InjectionService {
   }
 
   /**
-     * 在所有标签页中执行操作
-     * @param {string} action - 要执行的操作
-     * @param {Object} data - 附加数据
-     * @returns {Promise<Array>} 执行结果数组
-     */
-  async executeActionInAllTabs (action, data = {}) {
+   * 在所有标签页中执行操作
+   * @param {string} action - 要执行的操作
+   * @param {Object} data - 附加数据
+   * @returns {Promise<Array>} 执行结果数组
+   */
+  async executeActionInAllTabs(action, data = {}) {
     const tabs = await this.getAllBrowserTabs()
-    const promises = tabs.map(tab => {
+    const promises = tabs.map((tab) => {
       return new Promise((resolve) => {
         const helper = typeof self !== 'undefined' ? self.TabMessaging : null
         if (!helper || typeof helper.sendMessageToTab !== 'function') {

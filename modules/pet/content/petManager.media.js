@@ -2,7 +2,7 @@
  * PetManager - 媒体模块
  * 负责处理图片、文件等媒体消息的发送和预览
  */
-(function () {
+;(function () {
   'use strict'
 
   // 确保 PetManager 类已定义
@@ -13,9 +13,9 @@
   const proto = window.PetManager.prototype
 
   /**
-     * 发送图片消息
-     * @param {string} imageDataUrl - 图片数据的DataURL
-     */
+   * 发送图片消息
+   * @param {string} imageDataUrl - 图片数据的DataURL
+   */
   proto.sendImageMessage = async function (imageDataUrl) {
     const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages')
     if (!messagesContainer) return
@@ -68,16 +68,19 @@
               ...refreshedSession,
               id: this.currentSessionId,
               // 如果本地消息更新，保留本地消息
-              messages: localSession.messages?.length > refreshedSession.messages?.length
-                ? localSession.messages
-                : refreshedSession.messages,
+              messages:
+                localSession.messages?.length > refreshedSession.messages?.length
+                  ? localSession.messages
+                  : refreshedSession.messages,
               // 优先保留本地的 pageContent（如果本地有内容）
-              pageContent: (localSession.pageContent && localSession.pageContent.trim() !== '')
-                ? localSession.pageContent
-                : (refreshedSession.pageContent || localSession.pageContent || ''),
-              title: (localSession.title && localSession.title.trim() !== '')
-                ? localSession.title
-                : (refreshedTitle || localSession.title || '')
+              pageContent:
+                localSession.pageContent && localSession.pageContent.trim() !== ''
+                  ? localSession.pageContent
+                  : refreshedSession.pageContent || localSession.pageContent || '',
+              title:
+                localSession.title && localSession.title.trim() !== ''
+                  ? localSession.title
+                  : refreshedTitle || localSession.title || '',
             }
             this.sessions[this.currentSessionId] = merged
             console.log('会话内容已从后端刷新:', this.currentSessionId)
@@ -101,10 +104,10 @@
   }
 
   /**
-     * 显示图片预览
-     * @param {string} imageUrl - 图片URL或DataURL
-     * @param {string} fileName - 文件名（可选）
-     */
+   * 显示图片预览
+   * @param {string} imageUrl - 图片URL或DataURL
+   * @param {string} fileName - 文件名（可选）
+   */
   proto.showImagePreview = function (imageUrl, fileName = '') {
     // 如果已有预览弹窗，先关闭
     const existingModal = document.querySelector('.image-preview-modal')

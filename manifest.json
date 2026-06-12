@@ -1,13 +1,10 @@
 {
   "manifest_version": 3,
   "name": "温柔陪伴助手",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "在浏览器中添加一位温柔体贴的伴侣，陪伴您的浏览时光。支持多种互动功能，让网页浏览更加有趣！",
   "permissions": ["storage", "tabs", "scripting", "webRequest"],
-  "host_permissions": [
-    "<all_urls>",
-    "https://api.effiy.cn/*"
-  ],
+  "host_permissions": ["<all_urls>", "https://api.effiy.cn/*"],
   "background": {
     "service_worker": "modules/extension/background/index.js"
   },

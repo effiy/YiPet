@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>趋势报告索引 — YiPet</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<style>
+:root {
+  --bg-content: var(--bg, rgba(22,22,32,1));
+  --bg-card: var(--bg-card, linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%));
+  --color-accent: var(--accent, #FFC107);
+  --color-accent-2: var(--cyan, #22d3ee);
+  --text-primary: var(--text, rgba(250,250,252,1));
+  --text-secondary: var(--text2, rgba(160,160,164,1));
+  --text-muted: var(--text3, rgba(110,110,114,1));
+  --shadow-card: var(--shadow, 0 4px 20px rgba(0,0,0,0.3));
+  --radius-card: var(--radius, 12px);
+  --border-subtle: var(--border, 1px solid rgba(255,255,255,0.06));
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; min-height: 100vh; }
+.ti-container { max-width: 800px; margin: 0 auto; padding: 48px 24px 80px; }
+.ti-bc { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; font-size: .76rem; }
+.ti-bc a { color: var(--color-accent-2); text-decoration: none; transition: color 0.15s; }
+.ti-bc a:hover { color: var(--color-accent); }
+.ti-bc .ti-bc-sep { color: var(--text-muted); opacity: .4; }
+.ti-bc .ti-bc-cur { color: var(--text-secondary); }
+.ti-header { text-align: center; margin-bottom: 32px; }
+.ti-header h1 { font-size: 1.6rem; }
+.ti-header h1 .accent { color: var(--color-accent); }
+.ti-header .ti-meta { color: var(--text-muted); font-size: .82rem; margin-top: 6px; }
+.ti-card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 24px; box-shadow: var(--shadow-card); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 16px; text-align: left; border-bottom: var(--border-subtle); font-size: .88rem; }
+th { color: var(--text-muted); font-size: .76rem; text-transform: uppercase; }
+td a { color: var(--color-accent-2); text-decoration: none; }
+td a:hover { color: var(--color-accent); }
+.ti-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .72rem; font-weight: 600; }
+.ti-badge.ok { background: rgba(34,197,94,.15); color: #22c55e; }
+.ti-badge.warn { background: rgba(245,158,11,.15); color: #f59e0b; }
+.ti-badge.err { background: rgba(239,68,68,.15); color: #ef4444; }
+.ti-badge.rise { background: rgba(34,197,94,.12); color: #22c55e; }
+.ti-badge.fall { background: rgba(239,68,68,.12); color: #ef4444; }
+.ti-badge.flat { background: rgba(255,255,255,.05); color: var(--text-muted); }
+.ti-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
+.ti-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.15); color: var(--color-accent-2); text-decoration: none; font-size: .82rem; transition: all .15s; }
+.ti-link:hover { background: rgba(59,130,246,.15); color: var(--color-accent); }
+.ti-empty { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.ti-container { animation: fadeInDown 0.4s ease both; }
+</style>
+</head>
+<body>
+<div class="ti-container">
+  <nav class="ti-bc">
+    <a href="../index.html">📄 文档中心</a>
+    <span class="ti-bc-sep">▸</span>
+    <span class="ti-bc-cur">趋势报告</span>
+  </nav>
+
+  <div class="ti-header">
+    <h1><span class="accent">📡</span> 技术趋势报告</h1>
+    <div class="ti-meta">GitHub Trending · OSS Insight · TrendShift · Top-Starred — YiPet 相关技术生态追踪</div>
+  </div>
+
+  <div class="ti-card">
+    <table>
+      <thead><tr><th>日期</th><th>数据源</th><th>可达</th><th>趋势</th></tr></thead>
+      <tbody id="ti-tbody">
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ti-links">
+    <a class="ti-link" href="../index.html">🏠 返回首页</a>
+    <a class="ti-link" href="../健康报告/">🩺 健康报告</a>
+    <a class="ti-link" href="../自循环报告/">🔄 自循环报告</a>
+  </div>
+</div>
+
+<script>
+(async function() {
+  var tbody = document.getElementById('ti-tbody');
+  try {
+    var resp = await fetch('./reports.json');
+    if (!resp.ok) throw new Error('no data');
+    var reports = await resp.json();
+    if (!Array.isArray(reports) || !reports.length) throw new Error('empty');
+    tbody.innerHTML = reports.map(function(r) {
+      var okBadge = r.ok ? '<span class="ti-badge ok">可达</span>' : '<span class="ti-badge err">不可达</span>';
+      var trendBadge = '';
+      if (r.trend === 'rise') trendBadge = '<span class="ti-badge rise">↑ 上升</span>';
+      else if (r.trend === 'fall') trendBadge = '<span class="ti-badge fall">↓ 下降</span>';
+      else trendBadge = '<span class="ti-badge flat">→ 持平</span>';
+      var href = r.file ? '<a href="' + r.file + '">' + r.date + '</a>' : r.date;
+      return '<tr><td>' + href + '</td><td>' + r.source + '</td><td>' + okBadge + '</td><td>' + trendBadge + '</td></tr>';
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="ti-empty">📡 暂无趋势报告<br><span style="font-size:.7rem;margin-top:8px;display:block">运行 <code style="color:var(--color-accent-2)">node skills/rui-trends/rui-trends.mjs all</code> 生成首份报告</span></div></td></tr>';
+  }
+})();
+</script>
+</body>
+</html>

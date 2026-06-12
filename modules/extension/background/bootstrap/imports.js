@@ -1,4 +1,4 @@
-(function initBackgroundImports () {
+;(function initBackgroundImports() {
   const toUrl = (path) => {
     try {
       if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
@@ -16,9 +16,9 @@
         console.error('无法加载脚本:', path, e)
       } catch (_) {}
     }
-  };
+  }
 
-  [
+  ;[
     'core/config.js',
 
     'core/utils/logging/loggerUtils.js',
@@ -38,6 +38,6 @@
 
     'modules/extension/background/integrations/wework/weworkHandler.js',
 
-    'modules/extension/background/messaging/messageRouter.js'
+    'modules/extension/background/messaging/messageRouter.js',
   ].forEach(safeImport)
 })()

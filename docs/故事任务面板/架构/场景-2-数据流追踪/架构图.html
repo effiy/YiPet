@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>数据流追踪 · 架构图</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme-mono.css">
+<style>body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}</style>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}
+.container{max-width:1200px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#22d3ee;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:.875rem;margin-left:1.75rem}
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#475569;cursor:pointer;font-size:1.25rem;padding:.25rem .5rem;border-radius:.375rem}
+.toolbar-toggle:hover{color:#94a3b8;background:rgba(30,41,59,.5)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+.toolbar-actions button{background:rgba(30,41,59,.8);border:1px solid #334155;color:#94a3b8;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.toolbar-actions button:hover{background:rgba(51,65,85,.8);color:white;border-color:#475569}
+.diagram-container{background:rgba(15,23,42,.5);border-radius:1rem;border:1px solid #1e293b;padding:1.5rem;overflow-x:auto;margin-bottom:1.5rem}
+.diagram-container svg{width:100%;min-width:900px;display:block}
+.diagram-container pre.mermaid{background:transparent;color:#a9b1d6;font-size:.8rem;overflow-x:auto;margin-bottom:1rem}
+.diagram-container pre.mermaid svg{min-width:unset}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.cyan{background:#22d3ee}.card-dot.emerald{background:#34d399}
+.card-dot.violet{background:#a78bfa}.card-dot.amber{background:#fbbf24}
+.card-dot.rose{background:#fb7185}.card-dot.blue{background:#3B82F6}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#94a3b8;font-size:.75rem}
+.card li{margin-bottom:.375rem}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;font-size:0.76rem}
+.breadcrumb a{color:#7aa2f7;text-decoration:none;transition:color 0.15s}
+.breadcrumb a:hover{color:#fbbf24}
+.breadcrumb .bc-sep{color:#53576c;opacity:0.5;user-select:none}
+.breadcrumb .bc-current{color:#94a3b8;font-weight:500}
+.cross-nav{display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both}
+.cross-link{color:#7aa2f7;text-decoration:none;font-size:0.76rem;padding:3px 10px;border-radius:4px;transition:color 0.15s,background 0.15s}
+.cross-link:hover{color:#fbbf24;background:rgba(251,191,36,0.06)}
+.cross-link.on{color:#fbbf24;font-weight:600;cursor:default}
+.cross-sep{color:#475569;font-size:0.5rem;opacity:0.35;user-select:none}
+.footer{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+@media print{body{background:#020617;padding:1rem}.toolbar{display:none!important}}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 2 · 数据流追踪</span><span class="bc-sep">/</span><span class="bc-current">📐 架构图</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><span class="cross-link on">📐 架构</span><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>yipet-arch — 场景 2: 数据流与追踪</h1>
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button onclick="copySVG(this)">📋 Copy SVG</button>
+        <button onclick="downloadPNG(this)">🖼 PNG</button>
+        <button onclick="downloadSVG(this)">📄 SVG</button>
+      </div>
+      <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export">⋯</button>
+    </div>
+  </div>
+  <p class="subtitle">数据流与追踪 · vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="diagram-container">
+<pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEBUG["生产问题: 用户消息无响应"]:::risk --&gt; TRACE["沿聊天请求序列图&lt;br/&gt;逐节点检查"]:::exec
+    TRACE --&gt; CHECK{"哪个节点失败?"}
+    CHECK --&gt;|"Token 获取"| FIX1["检查 TokenManager&lt;br/&gt;三级降级链路"]:::milestone
+    CHECK --&gt;|"网络请求"| FIX2["检查 RequestClient&lt;br/&gt;重试+超时配置"]:::milestone
+    CHECK --&gt;|"流式解析"| FIX3["检查 SSE chunk&lt;br/&gt;ReadableStream 处理"]:::milestone
+    FIX1 &amp; FIX2 &amp; FIX3 --&gt; RESOLVED["定位到具体节点&lt;br/&gt;有源码路径可追踪"]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    USER["用户操作"]:::exec --&gt; CS["Content Script&lt;br/&gt;PetManager 实例"]:::core
+    CS --&gt;|"聊天消息"| AIAPI["petManager.ai.api.js&lt;br/&gt;流式 API 调用"]:::exec
+    CS --&gt;|"会话 CRUD"| SESS["petManager.session.crud.js"]:::exec
+    CS --&gt;|"FAQ 查询"| FAQJS["modules/faq/content/faq.js"]:::exec
+    CS --&gt;|"状态变更"| STORE["chrome.storage.local"]:::cross
+
+    AIAPI --&gt; APIMGR["ApiManager&lt;br/&gt;拦截器链"]:::exec
+    SESS --&gt; SESSSVC["SessionService"]:::exec
+    FAQJS --&gt; FAQSVC["FaqService"]:::exec
+
+    APIMGR --&gt; TOKEN["TokenManager&lt;br/&gt;X-Token 注入"]:::core
+    SESSSVC --&gt; APIMGR
+    FAQSVC --&gt; APIMGR
+
+    APIMGR --&gt; REQCLIENT["RequestClient&lt;br/&gt;fetch + 重试 + 超时"]:::cross
+    REQCLIENT --&gt; REMOTE["api.effiy.cn"]:::risk
+
+    STORE --&gt; CS
+    STORE &lt;--&gt;|"storage.onChanged"| SW["Service Worker&lt;br/&gt;register.js"]:::core
+    SW --&gt;|"chrome.tabs.sendMessage"| CS
+    SW --&gt;|"消息注册"| ROUTER["MessageRouter&lt;br/&gt;action → handler"]:::core
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre>
+<pre class="mermaid">sequenceDiagram
+    participant User as 用户
+    participant ChatUI as ChatInput (Vue)
+    participant PM as PetManager
+    participant AIAPI as ai.api.js
+    participant Prompt as ai.prompt.js
+    participant ApiMgr as ApiManager
+    participant Token as TokenManager
+    participant ReqClient as RequestClient
+    participant Fetch as fetch()
+    participant API as api.effiy.cn
+    participant Storage as chrome.storage.local
+
+    User-&gt;&gt;ChatUI: 输入消息 + 回车
+    ChatUI-&gt;&gt;PM: sendMessage(message)
+    PM-&gt;&gt;Prompt: buildPrompt(context, message)
+    Prompt--&gt;&gt;PM: fullPrompt
+    PM-&gt;&gt;AIAPI: streamChat(prompt, options)
+    AIAPI-&gt;&gt;ApiMgr: request({ url, method: 'POST', data })
+
+    Note over ApiMgr: 请求拦截器链执行
+    ApiMgr-&gt;&gt;Token: getToken()
+    Token-&gt;&gt;Token: L1: _getEnvToken()
+    Token-&gt;&gt;Token: L2: chrome.storage.local.get()
+    Token--&gt;&gt;ApiMgr: token
+    ApiMgr-&gt;&gt;ApiMgr: 注入 Header: X-Token
+
+    ApiMgr-&gt;&gt;ReqClient: request(config)
+    ReqClient-&gt;&gt;Fetch: fetch(url, { headers, body, signal })
+    Fetch-&gt;&gt;API: POST /prompt { stream: true, messages }
+
+    loop 流式响应
+        API--&gt;&gt;Fetch: data chunks (SSE)
+        Fetch--&gt;&gt;ReqClient: ReadableStream
+        ReqClient--&gt;&gt;ApiMgr: 响应拦截器处理
+        ApiMgr--&gt;&gt;AIAPI: 流式数据
+        AIAPI--&gt;&gt;PM: chunk callback
+        PM--&gt;&gt;ChatUI: 更新消息内容
+    end
+
+    API--&gt;&gt;Fetch: [DONE]
+    PM-&gt;&gt;Storage: StorageHelper.set(sessionKey, sessionData)
+    PM-&gt;&gt;ChatUI: 更新会话列表
+    ChatUI--&gt;&gt;User: 显示完整回复</pre>
+<pre class="mermaid">flowchart TB
+    subgraph writers["写入者"]
+        W1["PetManager.state.js&lt;br/&gt;pet_global_state · pet_chat_window_state"]:::exec
+        W2["PopupController&lt;br/&gt;petSettings · petGlobalState"]:::exec
+        W3["PetManager.session.crud.js&lt;br/&gt;petSession_&amp;#60id&amp;#62"]:::exec
+        W4["TokenSettingsModal&lt;br/&gt;YiPet.apiToken.v1"]:::exec
+        W5["Service Worker&lt;br/&gt;petSettings (初始化) · petPosition_* (清理)"]:::exec
+    end
+
+    subgraph store["chrome.storage.local"]
+        K1["pet_global_state"]:::note
+        K2["pet_chat_window_state"]:::note
+        K3["petSettings"]:::note
+        K4["YiPet.apiToken.v1"]:::note
+        K5["petOssFiles（可重建，优先清理）"]:::note
+        K6["petPosition_&amp;#60url&amp;#62"]:::note
+    end
+
+    subgraph readers["读取者"]
+        R1["PetManager.core.js — 初始化状态恢复"]:::review
+        R2["PopupController — 当前设置展示"]:::review
+        R3["TokenManager — Token 获取 · 二级降级"]:::review
+        R4["Service Worker — autoStart 判断 · 存储清理"]:::review
+    end
+
+    writers --&gt; store --&gt; readers
+
+    subgraph guard["存储访问守卫"]
+        G1["isChromeStorageAvailable()"]:::risk
+        G2["isQuotaError() → cleanupOldData()"]:::risk
+        G3["isContextInvalidatedError()"]:::risk
+    end
+
+    writers -.-&gt; guard
+    readers -.-&gt; guard
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171</pre>
+<pre class="mermaid">flowchart LR
+    USER["用户输入"] --&gt; CHAT["ChatInput 组件"]
+    CHAT --&gt; MSG["petManager.message"]
+    MSG --&gt; AI["petManager.ai.api"]
+    AI --&gt; REQ["RequestClient"]
+    REQ --&gt; TOKEN["TokenManager"]
+    TOKEN --&gt; API["api.effiy.cn"]
+    API --&gt; REQ
+    REQ --&gt; MSG
+    MSG --&gt; UI["ChatMessages 组件"]
+    UI --&gt; USER
+    MSG --&gt; SESS["SessionService"]
+    SESS --&gt; STORE["chrome.storage.local"]</pre>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot cyan"></div><h3>场景信息</h3></div>
+    <ul>
+      <li><b>场景:</b> 2 · 数据流与追踪</li>
+      <li><b>故事:</b> yipet-arch · yipet-arch — 项目技术架构故事</li>
+      <li><b>版本:</b> vv2.0.0</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-dot emerald"></div><h3>数据源</h3></div>
+    <ul>
+      <li><b>场景文档:</b> index.md §0 技术评审</li>
+      <li><b>生成日期:</b> 2026-06-06</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark'})</script>
+<script>
+function copySVG(btn){const svg=document.querySelector('.diagram-container svg').outerHTML;navigator.clipboard.writeText(svg).then(()=>{btn.textContent='✅ Copied';setTimeout(()=>btn.textContent='📋 Copy SVG',1500)})}
+function downloadSVG(btn){const svg=document.querySelector('.diagram-container svg').outerHTML;const b=new Blob([svg],{type:'image/svg+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='yipet-arch-scene2-architecture.svg';a.click();btn.textContent='✅ Downloaded';setTimeout(()=>btn.textContent='📄 SVG',1500)}
+function downloadPNG(btn){if(typeof html2canvas==='undefined'){alert('html2canvas not loaded');return}const el=document.querySelector('.diagram-container');html2canvas(el,{backgroundColor:'#020617'}).then(c=>{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='yipet-arch-scene2-architecture.png';a.click();btn.textContent='✅ Downloaded';setTimeout(()=>btn.textContent='🖼 PNG',1500)})}
+</script>
+</body>
+</html>

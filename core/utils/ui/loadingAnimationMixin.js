@@ -24,10 +24,10 @@
 
 class LoadingAnimationMixin {
   /**
-     * 显示加载动画（静态方法）
-     * @param {Object} context - 上下文对象（包含 activeRequestCount 属性）
-     */
-  static show (context = null) {
+   * 显示加载动画（静态方法）
+   * @param {Object} context - 上下文对象（包含 activeRequestCount 属性）
+   */
+  static show(context = null) {
     if (context) {
       context.activeRequestCount = (context.activeRequestCount || 0) + 1
       if (context.activeRequestCount === 1 && this._canShowAnimation()) {
@@ -46,10 +46,10 @@ class LoadingAnimationMixin {
   }
 
   /**
-     * 隐藏加载动画（静态方法）
-     * @param {Object} context - 上下文对象（包含 activeRequestCount 属性）
-     */
-  static hide (context = null) {
+   * 隐藏加载动画（静态方法）
+   * @param {Object} context - 上下文对象（包含 activeRequestCount 属性）
+   */
+  static hide(context = null) {
     if (context) {
       context.activeRequestCount = Math.max(0, (context.activeRequestCount || 0) - 1)
       if (context.activeRequestCount === 0 && this._canShowAnimation()) {
@@ -67,17 +67,17 @@ class LoadingAnimationMixin {
   }
 
   /**
-     * 检查是否可以显示动画
-     * @returns {boolean} 是否可以显示动画
-     */
-  static _canShowAnimation () {
+   * 检查是否可以显示动画
+   * @returns {boolean} 是否可以显示动画
+   */
+  static _canShowAnimation() {
     return typeof window !== 'undefined' && window.petLoadingAnimation
   }
 
   /**
-     * 执行显示动画
-     */
-  static _doShowAnimation () {
+   * 执行显示动画
+   */
+  static _doShowAnimation() {
     try {
       if (window.petLoadingAnimation && typeof window.petLoadingAnimation.show === 'function') {
         window.petLoadingAnimation.show()
@@ -88,9 +88,9 @@ class LoadingAnimationMixin {
   }
 
   /**
-     * 执行隐藏动画
-     */
-  static _doHideAnimation () {
+   * 执行隐藏动画
+   */
+  static _doHideAnimation() {
     try {
       if (window.petLoadingAnimation && typeof window.petLoadingAnimation.hide === 'function') {
         window.petLoadingAnimation.hide()
@@ -101,16 +101,16 @@ class LoadingAnimationMixin {
   }
 
   /**
-     * 实例方法：显示加载动画
-     */
-  _showLoadingAnimation () {
+   * 实例方法：显示加载动画
+   */
+  _showLoadingAnimation() {
     LoadingAnimationMixin.show(this)
   }
 
   /**
-     * 实例方法：隐藏加载动画
-     */
-  _hideLoadingAnimation () {
+   * 实例方法：隐藏加载动画
+   */
+  _hideLoadingAnimation() {
     LoadingAnimationMixin.hide(this)
   }
 }

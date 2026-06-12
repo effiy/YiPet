@@ -1,17 +1,17 @@
-(function registerBackgroundApp () {
+;(function registerBackgroundApp() {
   const root = typeof self !== 'undefined' ? self : globalThis
 
   const getInjectionService = () => (root && root.InjectionService ? root.InjectionService : null)
 
   const initLoggerMute = () => {
     try {
-      const LoggerUtils = root && root.LoggerUtils ? root.LoggerUtils : (typeof LoggerUtils !== 'undefined' ? LoggerUtils : null)
+      const LoggerUtils =
+        root && root.LoggerUtils ? root.LoggerUtils : typeof LoggerUtils !== 'undefined' ? LoggerUtils : null
       if (!LoggerUtils || typeof LoggerUtils.initMuteLogger !== 'function') return
 
-      const keyName =
-                root?.PET_CONFIG?.constants?.storageKeys?.devMode
-                  ? root.PET_CONFIG.constants.storageKeys.devMode
-                  : 'petDevMode'
+      const keyName = root?.PET_CONFIG?.constants?.storageKeys?.devMode
+        ? root.PET_CONFIG.constants.storageKeys.devMode
+        : 'petDevMode'
       LoggerUtils.initMuteLogger(keyName, false)
     } catch (_) {}
   }
@@ -24,8 +24,8 @@
         size: 260,
         color: 0,
         visible: false,
-        autoStart: true
-      }
+        autoStart: true,
+      },
     })
 
     chrome.storage.local.set({
@@ -33,8 +33,8 @@
         visible: false,
         color: 0,
         size: 260,
-        timestamp: Date.now()
-      }
+        timestamp: Date.now(),
+      },
     })
 
     if (details.reason === 'update') {
@@ -58,7 +58,7 @@
       (request, sender, sendResponse) => {
         ExtensionHandler.handleGetActiveTab(sendResponse)
       },
-      true
+      true,
     )
 
     router.register('injectPet', (request, sender, sendResponse) => {
@@ -69,13 +69,12 @@
       PetHandler.handleRemovePet(request, sender, sendResponse)
     })
 
-
     router.register(
       'forwardToContentScript',
       (request, sender, sendResponse) => {
         MessageForwardHandler.handleForwardToContentScript(request, sendResponse)
       },
-      true
+      true,
     )
 
     router.register(
@@ -83,7 +82,7 @@
       (request, sender, sendResponse) => {
         WeWorkHandler.handleSendToWeWorkRobot(request, sendResponse)
       },
-      true
+      true,
     )
 
     router.register(
@@ -91,7 +90,7 @@
       (request, sender, sendResponse) => {
         TabHandler.handleOpenLinkInNewTab(request, sendResponse)
       },
-      true
+      true,
     )
 
     return router
@@ -105,9 +104,9 @@
 
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const isSystemPage =
-            tab?.url &&
-            root?.PET_CONFIG?.constants?.URLS?.isSystemPage &&
-            root.PET_CONFIG.constants.URLS.isSystemPage(tab.url)
+      tab?.url &&
+      root?.PET_CONFIG?.constants?.URLS?.isSystemPage &&
+      root.PET_CONFIG.constants.URLS.isSystemPage(tab.url)
 
     if (changeInfo.status !== 'complete' || !tab?.url || isSystemPage) {
       return
@@ -155,9 +154,9 @@
       chrome.tabs.query({}, (tabs) => {
         tabs.forEach((tab) => {
           const isSystemPage =
-                        tab?.url &&
-                        root?.PET_CONFIG?.constants?.URLS?.isSystemPage &&
-                        root.PET_CONFIG.constants.URLS.isSystemPage(tab.url)
+            tab?.url &&
+            root?.PET_CONFIG?.constants?.URLS?.isSystemPage &&
+            root.PET_CONFIG.constants.URLS.isSystemPage(tab.url)
           if (isSystemPage) return
 
           chrome.tabs.sendMessage(
@@ -167,7 +166,7 @@
               if (chrome.runtime.lastError) {
                 console.log('同步状态到标签页失败:', tab.id, chrome.runtime.lastError.message)
               }
-            }
+            },
           )
         })
       })
@@ -186,11 +185,16 @@
 
   const KEYBOARD_COMMANDS = {
     'toggle-pet': { action: 'toggleVisibility' },
-    'open-chat': { action: 'toggleChatWindow' }
+    'open-chat': { action: 'toggleChatWindow' },
   }
 
   try {
-    if (chrome && chrome.commands && typeof chrome.commands.onCommand === 'object' && chrome.commands.onCommand.addListener) {
+    if (
+      chrome &&
+      chrome.commands &&
+      typeof chrome.commands.onCommand === 'object' &&
+      chrome.commands.onCommand.addListener
+    ) {
       chrome.commands.onCommand.addListener((command) => {
         const commandConfig = KEYBOARD_COMMANDS[command]
         if (!commandConfig) {

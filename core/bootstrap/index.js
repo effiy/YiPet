@@ -8,7 +8,7 @@
  * - `core/bootstrap/index.js`（本文件）：只负责实例化与生命周期清理
  */
 
-(function () {
+;(function () {
   'use strict'
 
   try {

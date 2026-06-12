@@ -8,7 +8,7 @@
  * - session/petManager.session.tag.js      - 会话标签管理
  * - session/petManager.session.batch.js    - 会话批量操作
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -16,11 +16,21 @@
 
   const proto = window.PetManager.prototype
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)))
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
+  const normalizeNameSpaces = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
 
   console.log('[PetManager] Session compatibility layer loaded')
 
-  proto.addMessageToSession = async function (type, content, timestamp = null, syncToBackend = true, imageDataUrl = null, allowEmpty = false) {
+  proto.addMessageToSession = async function (
+    type,
+    content,
+    timestamp = null,
+    _syncToBackend = true,
+    imageDataUrl = null,
+    allowEmpty = false,
+  ) {
     if (!this.currentSessionId) {
       console.warn('没有当前会话，无法添加消息')
       return
@@ -39,7 +49,7 @@
 
     const hasTextContent = content && typeof content === 'string' && content.trim()
     const hasSingleImage = typeof imageDataUrl === 'string' && imageDataUrl.trim()
-    const hasMultiImages = Array.isArray(imageDataUrl) && imageDataUrl.some(v => typeof v === 'string' && v.trim())
+    const hasMultiImages = Array.isArray(imageDataUrl) && imageDataUrl.some((v) => typeof v === 'string' && v.trim())
     const hasImage = hasSingleImage || hasMultiImages
 
     if (!hasTextContent && !hasImage && !allowEmpty) {
@@ -51,7 +61,7 @@
       type,
       content: hasTextContent ? content.trim() : '',
       message: hasTextContent ? content.trim() : '',
-      timestamp: timestamp || Date.now()
+      timestamp: timestamp || Date.now(),
     }
 
     if (hasImage) {
@@ -60,8 +70,8 @@
         message.imageDataUrls = [imageDataUrl.trim()]
       } else {
         const list = imageDataUrl
-          .filter(v => typeof v === 'string')
-          .map(v => v.trim())
+          .filter((v) => typeof v === 'string')
+          .map((v) => v.trim())
           .filter(Boolean)
         if (list.length > 0) {
           message.imageDataUrls = list
@@ -71,12 +81,14 @@
     }
 
     const lastMessage = session.messages[session.messages.length - 1]
-    if (lastMessage &&
-        lastMessage.type === message.type &&
-        String(lastMessage.content ?? lastMessage.message ?? '') === String(message.content ?? message.message ?? '') &&
-        String(lastMessage.imageDataUrl || '') === String(message.imageDataUrl || '') &&
-        (Date.now() - lastMessage.timestamp) < 1000) {
-      const previewText = hasTextContent ? message.content.substring(0, 30) : (hasImage ? '[图片]' : '')
+    if (
+      lastMessage &&
+      lastMessage.type === message.type &&
+      String(lastMessage.content ?? lastMessage.message ?? '') === String(message.content ?? message.message ?? '') &&
+      String(lastMessage.imageDataUrl || '') === String(message.imageDataUrl || '') &&
+      Date.now() - lastMessage.timestamp < 1000
+    ) {
+      const previewText = hasTextContent ? message.content.substring(0, 30) : hasImage ? '[图片]' : ''
       console.log('检测到重复消息，跳过保存:', previewText)
       return
     }
@@ -88,9 +100,8 @@
     session.messages.push(message)
     session.updatedAt = Date.now()
 
-    const previewText = hasTextContent ? message.content.substring(0, 50) : (hasImage ? '[图片消息]' : '')
-    console.log(`消息已添加到会话 ${this.currentSessionId} (${session.messages.length} 条):`,
-      message.type, previewText)
+    const previewText = hasTextContent ? message.content.substring(0, 50) : hasImage ? '[图片消息]' : ''
+    console.log(`消息已添加到会话 ${this.currentSessionId} (${session.messages.length} 条):`, message.type, previewText)
 
     if (session.messages.length === 1) {
       setTimeout(async () => {
@@ -119,7 +130,7 @@
       const normalizeMessagesForBackend = (messages) => {
         const list = Array.isArray(messages) ? messages : []
         return list.map((m) => {
-          const type = (m && m.type === 'pet') ? 'pet' : 'user'
+          const type = m && m.type === 'pet' ? 'pet' : 'user'
           const message = String(m?.message ?? m?.content ?? '').trim()
           const timestamp = Number(m?.timestamp) || Date.now()
           const imageDataUrls = Array.isArray(m?.imageDataUrls) ? m.imageDataUrls.filter(Boolean) : []
@@ -152,7 +163,7 @@
         isFavorite: session.isFavorite !== undefined ? Boolean(session.isFavorite) : false,
         createdAt: session.createdAt || now,
         updatedAt: now,
-        lastAccessTime: now
+        lastAccessTime: now,
       }
 
       if (!this.sessions[sessionId]) {
@@ -161,7 +172,8 @@
       Object.assign(this.sessions[sessionId], localSessionData)
 
       if (this.sessionApi && this.sessionApi.isEnabled()) {
-        const isAicrSession = String(sessionUrl || '').startsWith('aicr-session://') || String(pageDescription || '').includes('文件：')
+        const isAicrSession =
+          String(sessionUrl || '').startsWith('aicr-session://') || String(pageDescription || '').includes('文件：')
         const backendSessionData = {
           key: sessionId,
           url: sessionUrl,
@@ -172,9 +184,14 @@
           isFavorite: localSessionData.isFavorite,
           createdAt: localSessionData.createdAt,
           updatedAt: localSessionData.updatedAt,
-          lastAccessTime: localSessionData.lastAccessTime
+          lastAccessTime: localSessionData.lastAccessTime,
         }
-        if (!isAicrSession && session._isApiRequestSession && session.pageContent && String(session.pageContent).trim() !== '') {
+        if (
+          !isAicrSession &&
+          session._isApiRequestSession &&
+          session.pageContent &&
+          String(session.pageContent).trim() !== ''
+        ) {
           backendSessionData.pageContent = String(session.pageContent || '')
         }
 
@@ -184,8 +201,8 @@
           parameters: {
             cname: 'sessions',
             key: sessionId,
-            data: backendSessionData
-          }
+            data: backendSessionData,
+          },
         }
 
         const apiUrl = this.sessionApi.baseUrl || (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG.api.yiaiBaseUrl : '')
@@ -193,9 +210,9 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+            ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         })
 
         if (!response.ok) {
@@ -231,6 +248,7 @@
 
     const session = this.sessions[this.currentSessionId]
 
+    /* eslint-disable no-unused-vars -- isUrlMatched variable kept for debug/consistency, assigned but only read via external tooling */
     let pageInfo = null
     let isUrlMatched = false
     try {
@@ -238,16 +256,17 @@
       isUrlMatched = session.url === pageInfo.url
     } catch (error) {
       console.warn('获取页面信息失败，使用会话中已有的信息', {
-        error: String(error && error.message || error)
+        error: String((error && error.message) || error),
       })
       pageInfo = {
         url: session.url || window.location.href,
         title: normalizeNameSpaces(session.title || document.title || '未命名页面'),
         description: session.pageDescription || '',
-        content: session.pageContent || ''
+        content: session.pageContent || '',
       }
       isUrlMatched = session.url === pageInfo.url
     }
+    /* eslint-enable no-unused-vars */
 
     if (this.chatWindow) {
       const messagesContainer = this.chatWindow.querySelector('#yi-pet-chat-messages')
@@ -257,6 +276,7 @@
 
         for (const msgEl of messageElements) {
           const userBubble = msgEl.querySelector('[data-message-type="user-bubble"]')
+          // eslint-disable-next-line no-unused-vars -- petBubble queried for DOM existence check, used for message type routing
           const petBubble = msgEl.querySelector('[data-message-type="pet-bubble"]')
 
           if (userBubble) {
@@ -268,7 +288,7 @@
               const message = {
                 type: 'user',
                 content: content.trim() || '',
-                timestamp: this.getMessageTimestamp ? this.getMessageTimestamp(msgEl) : Date.now()
+                timestamp: this.getMessageTimestamp ? this.getMessageTimestamp(msgEl) : Date.now(),
               }
 
               if (imageDataUrl) {
@@ -337,7 +357,7 @@
                         ...this.sessions[sid],
                         ...sessionDetail,
                         key: sessionDetail.key || existingKey || this._generateUUID(),
-                        title: title || this.sessions[sid].title || ''
+                        title: title || this.sessions[sid].title || '',
                       }
                     }
                   }
@@ -370,7 +390,7 @@
     } catch (error) {
       console.warn('刷新失败:', error)
       if (typeof this.showNotification === 'function') {
-        this.showNotification('刷新失败：' + error.message, 'error')
+        this.showNotification(`刷新失败：${error.message}`, 'error')
       }
     }
   }
@@ -378,6 +398,7 @@
   proto.getMessageTimestamp = function (msgEl) {
     const timeEl = msgEl.querySelector('[data-message-time="true"]')
     if (timeEl) {
+      // eslint-disable-next-line no-unused-vars -- timeText extracted for logging, intentionally unused
       const timeText = timeEl.textContent.trim()
     }
     return Date.now()
@@ -417,14 +438,14 @@
         updateConsistency: false,
         updateUI: false,
         syncToBackend: false,
-        preserveOrder: true
+        preserveOrder: true,
       })
 
       if (typeof this.fetchSessionPageContent === 'function') {
         await this.fetchSessionPageContent(sessionId)
       }
 
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         requestAnimationFrame(async () => {
           await this.updateSessionSidebar()
           resolve()
@@ -444,7 +465,10 @@
           this.updateChatHeaderTitle()
         }
 
-        const loadedMessagesCount = messagesContainer?.querySelectorAll('[data-message-type="user-bubble"], [data-message-type="pet-bubble"]:not([data-welcome-message])').length || 0
+        const loadedMessagesCount =
+          messagesContainer?.querySelectorAll(
+            '[data-message-type="user-bubble"], [data-message-type="pet-bubble"]:not([data-welcome-message])',
+          ).length || 0
         const sessionMessagesCount = this.sessions[sessionId]?.messages?.length || 0
         console.log(`会话切换完成，已加载 ${loadedMessagesCount} 条消息 (会话中存储了 ${sessionMessagesCount} 条)`)
 
@@ -489,9 +513,10 @@
       return
     }
 
-    const apiUrl = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
-      ? String(window.API_URL).replace(/\/+$/, '')
-      : (PET_CONFIG?.api?.yiaiBaseUrl || '')
+    const apiUrl =
+      window.API_URL && /^https?:\/\//i.test(window.API_URL)
+        ? String(window.API_URL).replace(/\/+$/, '')
+        : PET_CONFIG?.api?.yiaiBaseUrl || ''
 
     if (!apiUrl) {
       console.warn('[writeSessionPageContent] API_URL 未配置')
@@ -503,12 +528,12 @@
     tags.forEach((folderName) => {
       const folder = normalizeNameSpaces(folderName)
       if (!folder || folder.toLowerCase() === 'default') return
-      currentPath = currentPath ? currentPath + '/' + folder : folder
+      currentPath = currentPath ? `${currentPath}/${folder}` : folder
     })
 
     let fileName = normalizeNameSpaces(session.title || 'Untitled')
     fileName = String(fileName).replace(/\//g, '-')
-    let cleanPath = currentPath ? currentPath + '/' + fileName : fileName
+    let cleanPath = currentPath ? `${currentPath}/${fileName}` : fileName
     cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
     if (cleanPath.startsWith('static/')) {
@@ -535,8 +560,8 @@
         body: JSON.stringify({
           target_file: cleanPath,
           content: pageContent,
-          is_base64: false
-        })
+          is_base64: false,
+        }),
       })
 
       if (res.ok) {
@@ -573,9 +598,10 @@
       return
     }
 
-    const apiUrl = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
-      ? String(window.API_URL).replace(/\/+$/, '')
-      : (PET_CONFIG?.api?.yiaiBaseUrl || '')
+    const apiUrl =
+      window.API_URL && /^https?:\/\//i.test(window.API_URL)
+        ? String(window.API_URL).replace(/\/+$/, '')
+        : PET_CONFIG?.api?.yiaiBaseUrl || ''
 
     if (!apiUrl) {
       console.warn('[fetchSessionPageContent] API_URL 未配置')
@@ -587,12 +613,12 @@
     tags.forEach((folderName) => {
       const folder = normalizeNameSpaces(folderName)
       if (!folder || folder.toLowerCase() === 'default') return
-      currentPath = currentPath ? currentPath + '/' + folder : folder
+      currentPath = currentPath ? `${currentPath}/${folder}` : folder
     })
 
     let fileName = normalizeNameSpaces(session.title || 'Untitled')
     fileName = String(fileName).replace(/\//g, '-')
-    let cleanPath = currentPath ? currentPath + '/' + fileName : fileName
+    let cleanPath = currentPath ? `${currentPath}/${fileName}` : fileName
     cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '')
     if (cleanPath.startsWith('static/')) {
       cleanPath = cleanPath.substring(7)
@@ -628,7 +654,7 @@
         const res = await fetch(`${apiUrl}/read-file`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_file: targetFile })
+          body: JSON.stringify({ target_file: targetFile }),
         })
         if (!res.ok) return { ok: false, status: res.status }
         const json = await res.json().catch(() => null)
@@ -659,9 +685,10 @@
       return
     }
 
-    const apiUrl = (window.API_URL && /^https?:\/\//i.test(window.API_URL))
-      ? String(window.API_URL).replace(/\/+$/, '')
-      : ((typeof PET_CONFIG !== 'undefined' ? PET_CONFIG.api.yiaiBaseUrl : '') || '')
+    const apiUrl =
+      window.API_URL && /^https?:\/\//i.test(window.API_URL)
+        ? String(window.API_URL).replace(/\/+$/, '')
+        : (typeof PET_CONFIG !== 'undefined' ? PET_CONFIG.api.yiaiBaseUrl : '') || ''
 
     if (!apiUrl) {
       console.warn('[deleteSessionFile] API_URL 未配置')
@@ -673,12 +700,12 @@
     tags.forEach((folderName) => {
       const folder = normalizeNameSpaces(folderName)
       if (!folder || folder.toLowerCase() === 'default') return
-      currentPath = currentPath ? currentPath + '/' + folder : folder
+      currentPath = currentPath ? `${currentPath}/${folder}` : folder
     })
 
     let fileName = normalizeNameSpaces(session.title || 'Untitled')
     fileName = String(fileName).replace(/\//g, '-')
-    let cleanPath = currentPath ? currentPath + '/' + fileName : fileName
+    let cleanPath = currentPath ? `${currentPath}/${fileName}` : fileName
     cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
     if (cleanPath.startsWith('static/')) {
@@ -715,7 +742,7 @@
         const res = await fetch(`${apiUrl}/delete-file`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_file: targetFile })
+          body: JSON.stringify({ target_file: targetFile }),
         })
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}))

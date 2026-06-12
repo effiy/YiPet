@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>模块拓扑 · 源码</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.stat .val.c{color:var(--cyan)}.stat .val.a{color:var(--accent)}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:12px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04)}
+th{color:var(--text3);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 1 · 模块拓扑</span><span class="bc-sep">/</span><span class="bc-current">📄 源码</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><span class="cross-link on">📄 源码</span><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>📄 <span class="accent">模块地图与拓扑</span> · 源码</h1>
+  <p class="sub">场景 1 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">26</div><div class="lbl">产物文件</div></div>
+        <div class="stat"><div class="val a">1</div><div class="lbl">场景</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="files">📁 文件清单</span>
+  <span class="tab" data-panel="structure">🗂 目录浏览</span>
+  <span class="tab" data-panel="topology">🔗 模块拓扑</span>
+</div>
+
+<div class="panel on" id="panelFiles">
+  <div class="section">
+    <h2><span class="dot"></span>产物文件</h2>
+    <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>产物文件清单</h3><table><thead><tr><th>层</th><th>文件</th><th>职责</th></tr></thead><tbody><tr><td>core 配置</td><td><code>core/config.js</code></td><td>全局配置中心 · ENDPOINTS 定义</td></tr><tr><td>core 配置</td><td><code>core/constants/endpoints.js</code></td><td>API 端点常量</td></tr><tr><td>core API</td><td><code>core/api/core/ApiManager.js</code></td><td>拦截器链 · X-Token 注入</td></tr><tr><td>core API</td><td><code>core/api/services/SessionService.js</code></td><td>会话 CRUD 服务</td></tr><tr><td>core API</td><td><code>core/api/services/FaqService.js</code></td><td>FAQ CRUD 服务</td></tr><tr><td>core 工具</td><td><code>core/utils/api/token.js</code></td><td>TokenManager · 三级降级</td></tr><tr><td>core 工具</td><td><code>core/utils/api/request.js</code></td><td>RequestClient · fetch + 重试</td></tr><tr><td>core 工具</td><td><code>core/utils/api/logger.js</code> · <code>error.js</code></td><td>日志 · 错误处理</td></tr><tr><td>core 工具</td><td><code>core/utils/dom/domHelper.js</code></td><td>DOM 操作辅助</td></tr><tr><td>core 工具</td><td><code>core/utils/storage/storageUtils.js</code></td><td>存储工具</td></tr><tr><td>core 引导</td><td><code>core/bootstrap/bootstrap.js</code></td><td>StorageHelper · 位置计算</td></tr><tr><td>pet 核心</td><td><code>modules/pet/content/core/petManager.core.js</code></td><td>PetManager 类（800+ 行）</td></tr><tr><td>pet 交互</td><td><code>modules/pet/content/petManager.ui.js</code> · <code>drag.js</code> · <code>pet.js</code></td><td>渲染 · 拖拽 · 外观</td></tr><tr><td>pet 状态</td><td><code>modules/pet/content/petManager.state.js</code> · <code>events.js</code></td><td>状态管理 · 事件总线</td></tr><tr><td>pet AI</td><td><code>modules/pet/content/ai/petManager.ai.api.js</code> · <code>prompt.js</code></td><td>流式调用 · Prompt 构建</td></tr><tr><td>pet 会话</td><td><code>modules/pet/content/session/petManager.session.crud.js</code> · <code>filter.js</code> · <code>tag.js</code> · <code>batch.js</code></td><td>会话增删改查</td></tr><tr><td>pet 渲染</td><td><code>modules/pet/content/editor/</code> · <code>mermaid/</code> · <code>chat.js</code> · <code>chatUi.js</code></td><td>编辑器 · 图表 · 聊天</td></tr><tr><td>pet 组件</td><td><code>modules/pet/components/chat/ChatWindow/index.js</code></td><td>聊天窗口 Vue 组件</td></tr><tr><td>pet 组件</td><td><code>modules/pet/components/chat/ChatHeader/index.js</code> · <code>ChatInput/</code> · <code>ChatMessages/</code></td><td>聊天头部 · 输入 · 消息</td></tr><tr><td>pet 组件</td><td><code>modules/pet/components/modal/TokenSettingsModal/index.js</code> · <code>AiSettingsModal/</code></td><td>设置面板</td></tr><tr><td>pet 组件</td><td><code>modules/pet/components/manager/FaqManager/index.js</code> · <code>FaqTagManager/</code> · <code>SessionTagManager/</code></td><td>数据管理面板</td></tr><tr><td>ext 后台</td><td><code>modules/extension/background/index.js</code></td><td>Service Worker 入口</td></tr><tr><td>ext 消息</td><td><code>modules/extension/background/messaging/messageRouter.js</code></td><td>消息路由注册</td></tr><tr><td>ext 服务</td><td><code>modules/extension/background/services/tabMessaging.js</code> · <code>injectionService.js</code></td><td>Tab 消息 · 注入服务</td></tr><tr><td>ext 弹窗</td><td><code>modules/extension/popup/index.js</code></td><td>PopupController 控制面板</td></tr><tr><td>faq</td><td><code>modules/faq/content/faq.js</code> · <code>tags.js</code></td><td>FAQ 内容 · 标签分类</td></tr></tbody></table><h3>全局导出验证</h3><table><thead><tr><th>导出符号</th><th>类型</th><th>验证命令</th></tr></thead><tbody><tr><td><code>window.PET_CONFIG</code></td><td>Object</td><td><code>typeof PET_CONFIG !== 'undefined'</code></td></tr><tr><td><code>window.PetManager</code></td><td>Class</td><td><code>typeof window.PetManager !== 'undefined'</code></td></tr><tr><td><code>window.petManager</code></td><td>Instance</td><td><code>window.petManager instanceof PetManager</code></td></tr><tr><td><code>window.TokenManager</code></td><td>Class</td><td><code>typeof TokenManager !== 'undefined'</code></td></tr><tr><td><code>window.StorageHelper</code></td><td>Object</td><td><code>typeof StorageHelper.isChromeStorageAvailable === 'function'</code></td></tr><tr><td><code>self.MessageRouter</code></td><td>Class (SW)</td><td><code>typeof self.MessageRouter !== 'undefined'</code></td></tr></tbody></table><p>---</p><p><a id="sec3"></a></p>
+  </div>
+</div>
+
+<div class="panel" id="panelStructure">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;开发者想理解系统结构&quot;]:::risk --&gt; READ[&quot;阅读模块全景拓扑图&lt;br/&gt;四层 subgraph + 依赖箭头&quot;]:::exec
+    READ --&gt; UNDERSTAND[&quot;理解: core 是共享基础&lt;br/&gt;pet 是主模块 · ext 是后台&lt;br/&gt;faq 是数据模块&quot;]:::note
+    UNDERSTAND --&gt; VERIFY[&quot;在 DevTools 验证全局符号&lt;br/&gt;typeof PET_CONFIG !== 'undefined'&quot;]:::exec
+    VERIFY --&gt; CONFIDENT[&quot;确认模块加载正确&lt;br/&gt;可定位任意文件归属&quot;]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>模块全景拓扑图</h3><p><pre class="mermaid">flowchart TB
+    subgraph core[&quot;core/ — 共享基础设施（14 文件）&quot;]
+        direction LR
+        CFG[&quot;config.js&lt;br/&gt;配置中心 · ENDPOINTS&quot;]:::cross
+        TOKEN[&quot;token.js&lt;br/&gt;TokenManager · 三级降级&quot;]:::cross
+        REQ[&quot;request.js&lt;br/&gt;RequestClient · fetch + 重试&quot;]:::cross
+        APIMGR[&quot;ApiManager.js&lt;br/&gt;拦截器链 · X-Token 注入&quot;]:::cross
+        SESSSVC[&quot;SessionService.js&lt;br/&gt;会话 CRUD 服务&quot;]:::cross
+        FAQSVC[&quot;FaqService.js&lt;br/&gt;FAQ CRUD 服务&quot;]:::cross
+        BOOTSTRAP[&quot;bootstrap.js&lt;br/&gt;StorageHelper · 位置计算&quot;]:::cross
+    end
+
+    subgraph pet[&quot;modules/pet/ — 宠物主模块（32 文件）&quot;]
+        subgraph petCore[&quot;核心类（1 文件）&quot;]
+            PMCORE[&quot;petManager.core.js&lt;br/&gt;PetManager 类 800+ 行&quot;]:::core
+        end
+        subgraph petInteract[&quot;交互层（5 文件）&quot;]
+            PMUI[&quot;ui.js · drag.js · pet.js&lt;br/&gt;渲染 · 拖拽 · 外观&quot;]:::exec
+            PMSTATE[&quot;state.js · events.js&lt;br/&gt;状态管理 · 事件总线&quot;]:::exec
+        end
+        subgraph petData[&quot;数据层（12 文件）&quot;]
+            PMAI[&quot;ai/ · api.js · prompt.js&lt;br/&gt;流式调用 · Prompt 构建&quot;]:::exec
+            PMSESS[&quot;session/ · crud · filter · tag · batch&lt;br/&gt;会话增删改查 · 筛选 · 批量&quot;]:::exec
+            PMFAQ[&quot;faq/ · faq.js · tags.js&lt;br/&gt;FAQ 管理 · 标签分类&quot;]:::exec
+        end
+        subgraph petRender[&quot;渲染层（5 文件）&quot;]
+            PMEDITOR[&quot;editor/ · 编辑器核心 · UI&quot;]:::exec
+            PMMERMAID[&quot;mermaid/ · Mermaid 渲染 · UI&quot;]:::exec
+            PMCHAT[&quot;chat.js · chatUi.js&lt;br/&gt;聊天逻辑 · 聊天 UI&quot;]:::exec
+        end
+        subgraph petComponents[&quot;Vue 组件（9 文件）&quot;]
+            direction LR
+            subgraph compChat[&quot;聊天核心&quot;]
+                CHATWIN[&quot;ChatWindow · ChatMessages&lt;br/&gt;聊天窗口 · 消息展示&quot;]:::core
+                CHATIN[&quot;ChatHeader · ChatInput&lt;br/&gt;聊天头部 · 输入框&quot;]:::core
+            end
+            subgraph compSettings[&quot;设置面板&quot;]
+                TOKENSET[&quot;TokenSettingsModal&lt;br/&gt;Token 配置&quot;]:::core
+                AISET[&quot;AiSettingsModal&lt;br/&gt;AI 参数设置&quot;]:::core
+            end
+            subgraph compData[&quot;数据管理&quot;]
+                FAQMGR[&quot;FaqManager&lt;br/&gt;FAQ 管理面板&quot;]:::core
+                SESSMGR[&quot;FaqTagManager&lt;br/&gt;SessionTagManager&lt;br/&gt;标签管理&quot;]:::core
+            end
+        end
+    end
+
+    subgraph ext[&quot;modules/extension/ — 扩展后台（12 文件）&quot;]
+        direction LR
+        SW[&quot;background/index.js&lt;br/&gt;Service Worker 入口&quot;]:::core
+        ROUTER[&quot;messaging/ · messageRouter&lt;br/&gt;消息路由注册&quot;]:::core
+        TABMSG[&quot;services/ · tabMessaging&lt;br/&gt;injectionService&quot;]:::core
+        POPUP[&quot;popup/ · index.html + index.js&lt;br/&gt;PopupController 控制面板&quot;]:::core
+    end
+
+    subgraph faq[&quot;modules/faq/ — FAQ 独立模块（2 文件）&quot;]
+        FAQJS[&quot;content/faq.js · tags.js&lt;br/&gt;FAQ 内容 · 标签&quot;]:::core
+    end
+
+    core --&gt; pet
+    core --&gt; ext
+    pet --&gt; faq
+    ext --&gt; pet
+
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre></p><h3>IIFE 全局命名空间模式</h3><p><pre class="mermaid">flowchart LR
+    subgraph iife[&quot;IIFE 模块注册模式&quot;]
+        A[&quot;(function(root) { ... })&lt;br/&gt;(globalThis)&quot;]:::exec
+        B[&quot;class ClassName { ... }&quot;]:::exec
+        C[&quot;root.ClassName = ClassName&quot;]:::exec
+        D[&quot;全局可访问&quot;]:::exec
+        A --&gt; B --&gt; C --&gt; D
+    end
+
+    subgraph globals[&quot;全局命名空间关键符号&quot;]
+        G1[&quot;PET_CONFIG · config&quot;]:::core
+        G2[&quot;TokenManager · tokenManager&quot;]:::core
+        G3[&quot;RequestClient · requestClient&quot;]:::core
+        G4[&quot;PetManager · petManager&quot;]:::core
+        G5[&quot;StorageHelper&quot;]:::core
+        G6[&quot;MessageRouter (SW)&quot;]:::core
+        G7[&quot;ApiManager · SessionService · FaqService&quot;]:::core
+    end
+
+    iife --&gt; globals
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><h3>模块注册与消费关系表</h3><table><thead><tr><th>模块</th><th>注册方式</th><th>命名空间</th><th>导出符号</th><th>主要消费者</th></tr></thead><tbody><tr><td>core/config.js</td><td>直接赋值</td><td>window / self</td><td>PET_CONFIG, config, ENDPOINTS</td><td>全部模块</td></tr><tr><td>core/utils/api/token.js</td><td>IIFE</td><td>root (globalThis)</td><td>TokenManager, tokenManager</td><td>ApiManager, PopupController</td></tr><tr><td>core/utils/api/request.js</td><td>IIFE</td><td>root</td><td>RequestClient, requestClient</td><td>ApiManager</td></tr><tr><td>core/api/core/ApiManager.js</td><td>IIFE</td><td>root</td><td>ApiManager</td><td>SessionService, FaqService</td></tr><tr><td>core/api/services/SessionService.js</td><td>IIFE</td><td>root</td><td>SessionService</td><td>PetManager</td></tr><tr><td>core/api/services/FaqService.js</td><td>IIFE</td><td>root</td><td>FaqService</td><td>PetManager, FAQ 模块</td></tr><tr><td>core/bootstrap/bootstrap.js</td><td>直接赋值</td><td>window</td><td>StorageHelper, getPetDefaultPosition</td><td>PetManager, UI 模块</td></tr><tr><td>modules/pet/content/core/petManager.core.js</td><td>IIFE</td><td>window</td><td>PetManager</td><td>所有 pet/ 子模块</td></tr><tr><td>modules/pet/content/petManager.js</td><td>IIFE</td><td>window</td><td>petManager (实例)</td><td>PopupController, SW</td></tr><tr><td>modules/extension/background/messaging/messageRouter.js</td><td>类声明</td><td>self</td><td>MessageRouter</td><td>register.js</td></tr><tr><td>modules/extension/background/services/tabMessaging.js</td><td>IIFE</td><td>root</td><td>TabMessaging</td><td>injectionService</td></tr><tr><td>modules/extension/background/services/injectionService.js</td><td>类声明</td><td>self</td><td>InjectionService</td><td>PetHandler, register.js</td></tr><tr><td>modules/extension/popup/index.js</td><td>类声明</td><td>window</td><td>PopupController</td><td>用户交互</td></tr></tbody></table><h3>Content Script 加载顺序（三阶段依赖树）</h3><p><pre class="mermaid">flowchart TB
+    subgraph phase1[&quot;Phase 1: 基础设施（Index 0–13）&quot;]
+        direction LR
+        P1F1[&quot;config.js&quot;]:::milestone
+        P1F2[&quot;md5.js&quot;]:::milestone
+        P1F3[&quot;token.js&quot;]:::milestone
+        P1F4[&quot;logger.js · error.js · request.js&quot;]:::milestone
+        P1F5[&quot;ApiManager.js&quot;]:::milestone
+        P1F6[&quot;SessionService.js · FaqService.js&quot;]:::milestone
+    end
+
+    subgraph phase2[&quot;Phase 2: 第三方库 + 工具（Index 14–22）&quot;]
+        direction LR
+        P2F1[&quot;marked.min.js · turndown.js&quot;]:::exec
+        P2F2[&quot;vue.global.js&quot;]:::exec
+        P2F3[&quot;bootstrap.js · domHelper.js&quot;]:::exec
+    end
+
+    subgraph phase3[&quot;Phase 3: PetManager + 组件（Index 23–87）&quot;]
+        direction LR
+        P3F1[&quot;petManager.core.js&quot;]:::core
+        P3F2[&quot;32 个 petManager.*.js 子模块&quot;]:::core
+        P3F3[&quot;9 个 Vue 组件 index.js&quot;]:::core
+        P3F4[&quot;faq.js · tags.js&quot;]:::core
+    end
+
+    phase1 --&gt; phase2 --&gt; phase3
+
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre></p><p>> <b>关键约束</b>: manifest.json <code>content_scripts[0].js</code> 数组顺序 = 加载顺序。<code>petManager.core.js</code> 必须在 <code>petManager.js</code> 之前；<code>vue.global.js</code> 必须在所有 Vue 组件之前；<code>config.js</code> 必须在所有依赖 <code>PET_CONFIG</code> 的模块之前。</p><h3>全局导出验证矩阵</h3><table><thead><tr><th>导出符号</th><th>类型</th><th>环境</th><th>依赖的前置加载</th><th>验证方法</th></tr></thead><tbody><tr><td>window.PET_CONFIG</td><td>Object</td><td>Content Script</td><td>config.js</td><td><code>typeof PET_CONFIG !== 'undefined'</code></td></tr><tr><td>window.PetManager</td><td>Class</td><td>Content Script</td><td>petManager.core.js + 全部前置</td><td><code>typeof window.PetManager !== 'undefined'</code></td></tr><tr><td>window.petManager</td><td>Instance</td><td>Content Script</td><td>petManager.js</td><td><code>window.petManager instanceof PetManager</code></td></tr><tr><td>window.StorageHelper</td><td>Object</td><td>Content Script</td><td>bootstrap.js</td><td><code>typeof StorageHelper.isChromeStorageAvailable === 'function'</code></td></tr><tr><td>window.TokenManager</td><td>Class</td><td>Content Script</td><td>token.js</td><td><code>typeof TokenManager !== 'undefined'</code></td></tr><tr><td>window.tokenManager</td><td>Instance</td><td>Content Script</td><td>token.js</td><td><code>typeof tokenManager !== 'undefined'</code></td></tr><tr><td>window.requestClient</td><td>Instance</td><td>Content Script</td><td>request.js</td><td><code>requestClient instanceof RequestClient</code></td></tr><tr><td>self.MessageRouter</td><td>Class</td><td>Service Worker</td><td>messageRouter.js</td><td><code>typeof self.MessageRouter !== 'undefined'</code></td></tr><tr><td>self.InjectionService</td><td>Class</td><td>Service Worker</td><td>injectionService.js</td><td><code>typeof self.InjectionService !== 'undefined'</code></td></tr><tr><td>window.PopupController</td><td>Class</td><td>Popup</td><td>popup/index.js</td><td><code>typeof PopupController !== 'undefined'</code></td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>模块拓扑覆盖 manifest.json 全部声明文件</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>模块消费关系无循环依赖</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>全局符号验证矩阵覆盖三环境（CS/SW/Popup）</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>加载顺序三阶段划分与 manifest 声明一致</td><td style="text-align:center">✅</td></tr><tr><td>5</td><td>IIFE 模式分析覆盖所有命名空间变体（window/self/globalThis）</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelTopology">
+  <pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["开发者想理解系统结构"]:::risk --&gt; READ["阅读模块全景拓扑图&lt;br/&gt;四层 subgraph + 依赖箭头"]:::exec
+    READ --&gt; UNDERSTAND["理解: core 是共享基础&lt;br/&gt;pet 是主模块 · ext 是后台&lt;br/&gt;faq 是数据模块"]:::note
+    UNDERSTAND --&gt; VERIFY["在 DevTools 验证全局符号&lt;br/&gt;typeof PET_CONFIG !== 'undefined'"]:::exec
+    VERIFY --&gt; CONFIDENT["确认模块加载正确&lt;br/&gt;可定位任意文件归属"]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph core["core/ — 共享基础设施（14 文件）"]
+        direction LR
+        CFG["config.js&lt;br/&gt;配置中心 · ENDPOINTS"]:::cross
+        TOKEN["token.js&lt;br/&gt;TokenManager · 三级降级"]:::cross
+        REQ["request.js&lt;br/&gt;RequestClient · fetch + 重试"]:::cross
+        APIMGR["ApiManager.js&lt;br/&gt;拦截器链 · X-Token 注入"]:::cross
+        SESSSVC["SessionService.js&lt;br/&gt;会话 CRUD 服务"]:::cross
+        FAQSVC["FaqService.js&lt;br/&gt;FAQ CRUD 服务"]:::cross
+        BOOTSTRAP["bootstrap.js&lt;br/&gt;StorageHelper · 位置计算"]:::cross
+    end
+
+    subgraph pet["modules/pet/ — 宠物主模块（32 文件）"]
+        subgraph petCore["核心类（1 文件）"]
+            PMCORE["petManager.core.js&lt;br/&gt;PetManager 类 800+ 行"]:::core
+        end
+        subgraph petInteract["交互层（5 文件）"]
+            PMUI["ui.js · drag.js · pet.js&lt;br/&gt;渲染 · 拖拽 · 外观"]:::exec
+            PMSTATE["state.js · events.js&lt;br/&gt;状态管理 · 事件总线"]:::exec
+        end
+        subgraph petData["数据层（12 文件）"]
+            PMAI["ai/ · api.js · prompt.js&lt;br/&gt;流式调用 · Prompt 构建"]:::exec
+            PMSESS["session/ · crud · filter · tag · batch&lt;br/&gt;会话增删改查 · 筛选 · 批量"]:::exec
+            PMFAQ["faq/ · faq.js · tags.js&lt;br/&gt;FAQ 管理 · 标签分类"]:::exec
+        end
+        subgraph petRender["渲染层（5 文件）"]
+            PMEDITOR["editor/ · 编辑器核心 · UI"]:::exec
+            PMMERMAID["mermaid/ · Mermaid 渲染 · UI"]:::exec
+            PMCHAT["chat.js · chatUi.js&lt;br/&gt;聊天逻辑 · 聊天 UI"]:::exec
+        end
+        subgraph petComponents["Vue 组件（9 文件）"]
+            direction LR
+            subgraph compChat["聊天核心"]
+                CHATWIN["ChatWindow · ChatMessages&lt;br/&gt;聊天窗口 · 消息展示"]:::core
+                CHATIN["ChatHeader · ChatInput&lt;br/&gt;聊天头部 · 输入框"]:::core
+            end
+            subgraph compSettings["设置面板"]
+                TOKENSET["TokenSettingsModal&lt;br/&gt;Token 配置"]:::core
+                AISET["AiSettingsModal&lt;br/&gt;AI 参数设置"]:::core
+            end
+            subgraph compData["数据管理"]
+                FAQMGR["FaqManager&lt;br/&gt;FAQ 管理面板"]:::core
+                SESSMGR["FaqTagManager&lt;br/&gt;SessionTagManager&lt;br/&gt;标签管理"]:::core
+            end
+        end
+    end
+
+    subgraph ext["modules/extension/ — 扩展后台（12 文件）"]
+        direction LR
+        SW["background/index.js&lt;br/&gt;Service Worker 入口"]:::core
+        ROUTER["messaging/ · messageRouter&lt;br/&gt;消息路由注册"]:::core
+        TABMSG["services/ · tabMessaging&lt;br/&gt;injectionService"]:::core
+        POPUP["popup/ · index.html + index.js&lt;br/&gt;PopupController 控制面板"]:::core
+    end
+
+    subgraph faq["modules/faq/ — FAQ 独立模块（2 文件）"]
+        FAQJS["content/faq.js · tags.js&lt;br/&gt;FAQ 内容 · 标签"]:::core
+    end
+
+    core --&gt; pet
+    core --&gt; ext
+    pet --&gt; faq
+    ext --&gt; pet
+
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart LR
+    subgraph iife["IIFE 模块注册模式"]
+        A["(function(root) { ... })&lt;br/&gt;(globalThis)"]:::exec
+        B["class ClassName { ... }"]:::exec
+        C["root.ClassName = ClassName"]:::exec
+        D["全局可访问"]:::exec
+        A --&gt; B --&gt; C --&gt; D
+    end
+
+    subgraph globals["全局命名空间关键符号"]
+        G1["PET_CONFIG · config"]:::core
+        G2["TokenManager · tokenManager"]:::core
+        G3["RequestClient · requestClient"]:::core
+        G4["PetManager · petManager"]:::core
+        G5["StorageHelper"]:::core
+        G6["MessageRouter (SW)"]:::core
+        G7["ApiManager · SessionService · FaqService"]:::core
+    end
+
+    iife --&gt; globals
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre>
+<pre class="mermaid">flowchart TB
+    subgraph phase1["Phase 1: 基础设施（Index 0–13）"]
+        direction LR
+        P1F1["config.js"]:::milestone
+        P1F2["md5.js"]:::milestone
+        P1F3["token.js"]:::milestone
+        P1F4["logger.js · error.js · request.js"]:::milestone
+        P1F5["ApiManager.js"]:::milestone
+        P1F6["SessionService.js · FaqService.js"]:::milestone
+    end
+
+    subgraph phase2["Phase 2: 第三方库 + 工具（Index 14–22）"]
+        direction LR
+        P2F1["marked.min.js · turndown.js"]:::exec
+        P2F2["vue.global.js"]:::exec
+        P2F3["bootstrap.js · domHelper.js"]:::exec
+    end
+
+    subgraph phase3["Phase 3: PetManager + 组件（Index 23–87）"]
+        direction LR
+        P3F1["petManager.core.js"]:::core
+        P3F2["32 个 petManager.*.js 子模块"]:::core
+        P3F3["9 个 Vue 组件 index.js"]:::core
+        P3F4["faq.js · tags.js"]:::core
+    end
+
+    phase1 --&gt; phase2 --&gt; phase3
+
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7</pre>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

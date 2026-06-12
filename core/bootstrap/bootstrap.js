@@ -3,9 +3,12 @@
  * 负责在网页中创建和管理宠物
  */
 
-(function () {
+;(function () {
   try {
-    const keyName = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.storageKeys) ? PET_CONFIG.constants.storageKeys.devMode : 'petDevMode'
+    const keyName =
+      typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.storageKeys
+        ? PET_CONFIG.constants.storageKeys.devMode
+        : 'petDevMode'
     LoggerUtils.initMuteLogger(keyName, false)
   } catch (e) {}
 })()
@@ -17,7 +20,7 @@ if (typeof PET_CONFIG === 'undefined') {
 
 window.StorageHelper = {
   // 检查chrome.storage是否可用
-  isChromeStorageAvailable () {
+  isChromeStorageAvailable() {
     try {
       if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.runtime) return false
       try {
@@ -30,16 +33,16 @@ window.StorageHelper = {
     }
   },
 
-  isQuotaError (error) {
+  isQuotaError(error) {
     return ErrorHandler.isQuotaError(error)
   },
 
-  isContextInvalidatedError (error) {
+  isContextInvalidatedError(error) {
     return ErrorHandler.isContextInvalidated(error)
   },
 
   // 清理旧数据以释放空间
-  async cleanupOldData () {
+  async cleanupOldData() {
     try {
       // 检查chrome.storage是否可用
       if (!this.isChromeStorageAvailable()) {
@@ -73,7 +76,7 @@ window.StorageHelper = {
 
       // 按优先级清理数据
       const cleanupKeys = [
-        'petOssFiles' // OSS文件列表（可以重新加载）
+        'petOssFiles', // OSS文件列表（可以重新加载）
       ]
 
       for (const key of cleanupKeys) {
@@ -105,7 +108,7 @@ window.StorageHelper = {
   },
 
   // 处理存储错误的辅助函数
-  _handleStorageError (key, value, error, resolve) {
+  _handleStorageError(key, value, error, resolve) {
     if (this.isContextInvalidatedError(error)) {
       resolve({ success: false, error: error.message || '扩展上下文失效', contextInvalidated: true })
       return true
@@ -119,7 +122,7 @@ window.StorageHelper = {
           return
         }
         // 重试保存
-        chrome.storage.local.set({ [key]: value }, (retryError) => {
+        chrome.storage.local.set({ [key]: value }, (_retryError) => {
           if (chrome.runtime.lastError) {
             const retryErr = chrome.runtime.lastError
             resolve({ success: false, error: retryErr.message })
@@ -136,7 +139,7 @@ window.StorageHelper = {
   },
 
   // 安全的存储设置函数
-  async set (key, value, options = {}) {
+  async set(key, value, _options = {}) {
     return new Promise(async (resolve) => {
       if (!this.isChromeStorageAvailable()) {
         resolve({ success: false, error: 'chrome.storage 不可用', contextInvalidated: true })
@@ -156,16 +159,15 @@ window.StorageHelper = {
         })
       } catch (error) {
         const errorMsg = (error.message || error.toString() || '').toLowerCase()
-        const isContextInvalidated = this.isContextInvalidatedError(error) ||
-                                                !this.isChromeStorageAvailable() ||
-                                                errorMsg.includes('invalidated')
+        const isContextInvalidated =
+          this.isContextInvalidatedError(error) || !this.isChromeStorageAvailable() || errorMsg.includes('invalidated')
         resolve({ success: false, error: error.message || '存储失败', contextInvalidated: !!isContextInvalidated })
       }
     })
   },
 
   // 安全的存储获取函数
-  async get (key) {
+  async get(key) {
     return new Promise((resolve) => {
       if (!this.isChromeStorageAvailable()) {
         resolve(null)
@@ -184,17 +186,17 @@ window.StorageHelper = {
         resolve(null)
       }
     })
-  }
+  },
 }
 
 window.getPetDefaultPosition = function () {
   return { x: 20, y: Math.round(window.innerHeight * 0.2) }
 }
 
-window.getChatWindowDefaultPosition = function (width, height) {
+window.getChatWindowDefaultPosition = function (width, _height) {
   return {
     x: Math.max(0, window.innerWidth - width),
-    y: 0
+    y: 0,
   }
 }
 

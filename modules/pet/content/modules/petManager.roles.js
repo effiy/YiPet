@@ -1,4 +1,4 @@
-(function (global) {
+;(function (global) {
   const proto = global.PetManager.prototype
 
   // 获取角色图标（优先自定义，其次从角色配置列表中查找）
@@ -14,7 +14,7 @@
     // 如果没有自定义图标，从角色配置列表中查找
     const actionKey = roleConfig.actionKey
     if (actionKey && allConfigs && Array.isArray(allConfigs)) {
-      const foundConfig = allConfigs.find(c => c && c.actionKey === actionKey)
+      const foundConfig = allConfigs.find((c) => c && c.actionKey === actionKey)
       if (foundConfig && foundConfig.icon && typeof foundConfig.icon === 'string') {
         const icon = foundConfig.icon.trim()
         if (icon) return icon
@@ -27,7 +27,7 @@
       mindmap: '🧠',
       flashcard: '🎴',
       report: '📊',
-      bestPractice: '💡'
+      bestPractice: '💡',
     }
     if (actionKey && defaultIcons[actionKey]) {
       return defaultIcons[actionKey]
@@ -49,7 +49,7 @@
     // 如果没有自定义标签，从角色配置列表中查找
     const actionKey = roleConfig.actionKey
     if (actionKey && allConfigs && Array.isArray(allConfigs)) {
-      const foundConfig = allConfigs.find(c => c && c.actionKey === actionKey)
+      const foundConfig = allConfigs.find((c) => c && c.actionKey === actionKey)
       if (foundConfig && foundConfig.label && typeof foundConfig.label === 'string') {
         const label = foundConfig.label.trim()
         if (label) return label
@@ -80,13 +80,13 @@
   proto.getRoleInfoForAction = async function (actionKey) {
     try {
       const configs = await this.getRoleConfigs()
-      const cfg = Array.isArray(configs) ? configs.find(c => c && c.actionKey === actionKey) : null
+      const cfg = Array.isArray(configs) ? configs.find((c) => c && c.actionKey === actionKey) : null
 
       return {
         icon: this.getRoleIcon(cfg || { actionKey }, configs),
         label: this.getRoleLabel(cfg || { actionKey }, configs),
         tooltip: this.getRoleTooltip(cfg || { actionKey }),
-        config: cfg
+        config: cfg,
       }
     } catch (error) {
       console.error('获取角色信息失败:', error)
@@ -96,7 +96,7 @@
         icon: this.getRoleIcon(fallbackConfig, null),
         label: this.getRoleLabel(fallbackConfig, null),
         tooltip: this.getRoleTooltip(fallbackConfig),
-        config: null
+        config: null,
       }
     }
   }
@@ -131,7 +131,7 @@ ${pageContent || '无内容'}
       systemPrompt: cfg.prompt.trim(),
       userPrompt,
       label: roleInfo.label,
-      icon: roleInfo.icon
+      icon: roleInfo.icon,
     }
   }
 
@@ -146,7 +146,9 @@ ${pageContent || '无内容'}
       // 更新按钮的图标、标题和提示语
       iconEl.innerHTML = roleInfo.icon || iconEl.innerHTML
       iconEl.title = roleInfo.tooltip
-    } catch (_) { /* 忽略展示更新错误 */ }
+    } catch (_) {
+      /* 忽略展示更新错误 */
+    }
   }
 
   // 创建动作按钮（根据角色配置动态创建）
@@ -223,7 +225,7 @@ ${pageContent || '无内容'}
     const boundRoleIds = new Set()
 
     for (const key of orderedKeys) {
-      const config = (configsRaw || []).find(c => c && c.actionKey === key)
+      const config = (configsRaw || []).find((c) => c && c.actionKey === key)
       if (config) {
         boundRoleIds.add(config.id)
 
@@ -250,7 +252,7 @@ ${pageContent || '无内容'}
     }
 
     // 再显示其他角色（没有绑定按钮的角色）作为可点击按钮
-    const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id))
+    const otherRoles = (configsRaw || []).filter((c) => c && c.id && !boundRoleIds.has(c.id))
     for (const config of otherRoles) {
       // 创建或复用角色按钮（没有 actionKey，点击时请求 services.ai.chat_service 接口）
       let button = this.roleButtonsById[config.id]
@@ -313,7 +315,7 @@ ${pageContent || '无内容'}
             title: session.title || document.title || '当前页面',
             url: session.url || window.location.href,
             description: session.pageDescription || '',
-            content: session.pageContent || ''
+            content: session.pageContent || '',
           }
         } else {
           pageInfo = this.getPageInfo()
@@ -352,8 +354,8 @@ ${pageContent || '无内容'}
           const response = await this.callAiApi(
             rolePrompt,
             fromUser,
-            (text) => { }, // 不需要在流式输出中更新
-            null
+            (_text) => {}, // 不需要在流式输出中更新
+            null,
           )
 
           // 处理响应结果
@@ -404,9 +406,11 @@ ${pageContent || '无内容'}
         const messageBubble = welcomeMessage.querySelector('[data-message-type="pet-bubble"]')
         let messageContent = ''
         if (messageBubble) {
-          messageContent = messageBubble.getAttribute('data-original-text') ||
-                        messageBubble.innerText ||
-                        messageBubble.textContent || ''
+          messageContent =
+            messageBubble.getAttribute('data-original-text') ||
+            messageBubble.innerText ||
+            messageBubble.textContent ||
+            ''
         }
 
         if (!messageContent || !messageContent.trim()) {
@@ -469,8 +473,8 @@ ${pageContent || '无内容'}
     if (!messagesContainer) return
 
     // 查找所有有按钮容器的消息（不包括第一条欢迎消息）
-    const allMessages = Array.from(messagesContainer.children).filter(
-      child => child.querySelector('[data-message-type="pet-bubble"]')
+    const allMessages = Array.from(messagesContainer.children).filter((child) =>
+      child.querySelector('[data-message-type="pet-bubble"]'),
     )
 
     // 跳过第一条消息，从第二条开始刷新
@@ -506,7 +510,7 @@ ${pageContent || '无内容'}
           title: session.title || document.title || '当前页面',
           url: session.url || window.location.href,
           description: session.pageDescription || '',
-          content: session.pageContent || '' // 使用会话保存的页面内容
+          content: session.pageContent || '', // 使用会话保存的页面内容
         }
       } else {
         // 如果没有当前会话，使用当前页面信息
@@ -523,7 +527,7 @@ ${pageContent || '无内容'}
           systemPrompt: '',
           userPrompt: '',
           label: '自定义角色',
-          icon: '🙂'
+          icon: '🙂',
         }
       }
 
@@ -583,11 +587,7 @@ ${pageContent || '无内容'}
 
         // 使用统一的 payload 构建函数，自动包含会话 ID
         // 如果找到了用户消息元素，将其传递给 buildPromptPayload，以便从正确的消息中提取图片
-        const oldPayload = this.buildPromptPayload(
-          roleInfo.systemPrompt,
-          fromUser,
-          { messageDiv: userMessageDiv }
-        )
+        const oldPayload = this.buildPromptPayload(roleInfo.systemPrompt, fromUser, { messageDiv: userMessageDiv })
 
         // 转换为 services.ai.chat_service 格式
         const payload = {
@@ -596,8 +596,8 @@ ${pageContent || '无内容'}
           parameters: {
             system: oldPayload.fromSystem,
             user: oldPayload.fromUser,
-            stream: false
-          }
+            stream: false,
+          },
         }
         if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
           payload.parameters.images = oldPayload.images
@@ -612,10 +612,10 @@ ${pageContent || '无内容'}
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...this.getAuthHeaders()
+            ...this.getAuthHeaders(),
           },
           body: JSON.stringify(payload),
-          signal: abortController.signal
+          signal: abortController.signal,
         })
 
         if (!response.ok) {
@@ -678,8 +678,8 @@ ${pageContent || '无内容'}
             // 按钮现在由 ChatWindow.addActionButtonsToMessage 统一管理
             // 不再需要单独调用 addCopyButton
             // 添加 try again 按钮（仅当不是第一条消息时）
-            const petMessages = Array.from(messagesContainer.children).filter(
-              child => child.querySelector('[data-message-type="pet-bubble"]')
+            const petMessages = Array.from(messagesContainer.children).filter((child) =>
+              child.querySelector('[data-message-type="pet-bubble"]'),
             )
             if (petMessages.length > 1) {
               const tryAgainContainer = message.querySelector('[data-try-again-button-container]')
@@ -736,14 +736,15 @@ ${pageContent || '无内容'}
 
         // 显示错误消息（取消时不显示）
         if (!isAbortError && messageText) {
-          const errorMessage = error.message && error.message.includes('HTTP error')
-            ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
-            : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '请稍后重试。'}${loadingIcon}`
+          const errorMessage =
+            error.message && error.message.includes('HTTP error')
+              ? `抱歉，请求失败（${error.message}）。请检查网络连接后重试。${loadingIcon}`
+              : `抱歉，无法生成"${pageInfo.title || '当前页面'}"的${roleInfo.label || '内容'}。${error.message ? `错误信息：${error.message}` : '请稍后重试。'}${loadingIcon}`
           messageText.innerHTML = this.renderMarkdown(errorMessage)
           if (typeof this.processTabs === 'function') this.processTabs(messageText)
           // 添加 try again 按钮（仅当不是第一条消息时）
-          const petMessages = Array.from(messagesContainer.children).filter(
-            child => child.querySelector('[data-message-type="pet-bubble"]')
+          const petMessages = Array.from(messagesContainer.children).filter((child) =>
+            child.querySelector('[data-message-type="pet-bubble"]'),
           )
           if (petMessages.length > 1) {
             const tryAgainContainer = message.querySelector('[data-try-again-button-container]')
@@ -789,6 +790,7 @@ ${pageContent || '无内容'}
     if (!this.chatWindow) return
     let overlay = this.chatWindow.querySelector('#pet-role-settings')
     const currentColor = this.colors[this.colorIndex]
+    // eslint-disable-next-line no-unused-vars -- mainColor extracted for future gradient usage
     const mainColor = this.getMainColorFromGradient(currentColor)
     if (!overlay) {
       overlay = document.createElement('div')
@@ -892,7 +894,7 @@ ${pageContent || '无内容'}
     const orderedKeys = await this.getOrderedBoundRoleKeys()
     const boundRoleIds = new Set()
     for (const key of orderedKeys) {
-      const config = (configsRaw || []).find(c => c && c.actionKey === key)
+      const config = (configsRaw || []).find((c) => c && c.actionKey === key)
       if (config) {
         boundRoleIds.add(config.id)
         // 使用统一的角色信息获取函数获取标签
@@ -903,7 +905,7 @@ ${pageContent || '无内容'}
     }
 
     // 再显示其他角色（没有绑定按钮的角色）
-    const otherRoles = (configsRaw || []).filter(c => c && c.id && !boundRoleIds.has(c.id))
+    const otherRoles = (configsRaw || []).filter((c) => c && c.id && !boundRoleIds.has(c.id))
     if (otherRoles.length > 0) {
       // 如果有已绑定的角色，添加分隔线
       if (orderedKeys.length > 0) {
@@ -912,7 +914,7 @@ ${pageContent || '无内容'}
         list.appendChild(separator)
       }
 
-      otherRoles.forEach(config => {
+      otherRoles.forEach((config) => {
         const row = this.createRoleListItem(config, '', configsRaw)
         list.appendChild(row)
       })
@@ -933,7 +935,7 @@ ${pageContent || '无内容'}
     info.className = 'pet-role-settings-item-info'
     const name = document.createElement('div')
     const displayIcon = this.getRoleIcon(c, allConfigs)
-    name.textContent = `${displayIcon ? (displayIcon + ' ') : ''}${c.label || '(未命名)'}`
+    name.textContent = `${displayIcon ? `${displayIcon} ` : ''}${c.label || '(未命名)'}`
     name.className = 'pet-role-settings-item-name'
     info.appendChild(name)
     if (buttonLabel && buttonLabel.trim()) {
@@ -953,7 +955,7 @@ ${pageContent || '无内容'}
     del.textContent = '删除'
     del.className = 'pet-role-settings-item-del'
     del.addEventListener('click', async () => {
-      const next = (await this.getRoleConfigs()).filter(x => x.id !== c.id)
+      const next = (await this.getRoleConfigs()).filter((x) => x.id !== c.id)
       await this.setRoleConfigs(next)
       this.renderRoleSettingsList()
       this.renderRoleSettingsForm(null, true) // 显示空白状态
@@ -976,9 +978,10 @@ ${pageContent || '无内容'}
     if (!form) return
     const configsAll = await this.getRoleConfigs()
     // 用于查找已绑定按钮的角色列表（用于检查占用情况）
-    const configs = (configsAll || []).filter(c => c && c.actionKey)
+    // eslint-disable-next-line no-unused-vars -- configs filtered for bound button checks, consumed by child renderers
+    const configs = (configsAll || []).filter((c) => c && c.actionKey)
     // 当前编辑的角色（从所有角色中查找）
-    const current = editId ? (configsAll || []).find(c => c && c.id === editId) : null
+    const current = editId ? (configsAll || []).find((c) => c && c.id === editId) : null
 
     form.innerHTML = ''
 
@@ -1120,28 +1123,28 @@ ${pageContent || '无内容'}
         }
 
         const next = {
-          id: current?.id || ('role_' + Math.random().toString(36).slice(2, 10)),
+          id: current?.id || `role_${Math.random().toString(36).slice(2, 10)}`,
           label: labelInput.value.trim(),
           icon: iconInput.value.trim() || '🙂',
           prompt: promptInput.value.trim(),
           // 保持原有的 actionKey 或生成新的（如果绑定）
-          actionKey: bindActionKey ? (current?.actionKey || ('custom_' + Math.random().toString(36).slice(2, 8))) : null,
+          actionKey: bindActionKey ? current?.actionKey || `custom_${Math.random().toString(36).slice(2, 8)}` : null,
           tooltip: labelInput.value.trim(),
-          includeCharts: current?.includeCharts || false
+          includeCharts: current?.includeCharts || false,
         }
 
         const arr = await this.getRoleConfigs()
 
         // 检查 actionKey 冲突（如果是绑定状态）
         if (next.actionKey) {
-          const conflict = arr.find(x => x.actionKey === next.actionKey && x.id !== next.id)
+          const conflict = arr.find((x) => x.actionKey === next.actionKey && x.id !== next.id)
           if (conflict) {
             // 如果有冲突，重新生成一个
-            next.actionKey = 'custom_' + Math.random().toString(36).slice(2, 8)
+            next.actionKey = `custom_${Math.random().toString(36).slice(2, 8)}`
           }
         }
 
-        const idx = arr.findIndex(x => x.id === next.id)
+        const idx = arr.findIndex((x) => x.id === next.id)
         const isEdit = idx >= 0
         if (isEdit) {
           arr[idx] = next
@@ -1152,7 +1155,7 @@ ${pageContent || '无内容'}
         await this.setRoleConfigs(arr)
 
         // 稍微延迟一下，让动画效果更自然
-        await new Promise(resolve => setTimeout(resolve, 300))
+        await new Promise((resolve) => setTimeout(resolve, 300))
 
         this.renderRoleSettingsList()
         this.renderRoleSettingsForm(null, true) // 显示空白状态，提升体验
@@ -1211,16 +1214,16 @@ ${pageContent || '无内容'}
       mindmap: true,
       flashcard: false,
       report: true,
-      bestPractice: true
+      bestPractice: true,
     }
     const arr = []
-    keys.forEach(k => {
+    keys.forEach((k) => {
       // 从已有配置中查找对应的label、icon和prompt
       let label = k // 默认使用actionKey
       let icon = '' // 默认icon为空，由用户配置
       let prompt = '' // 默认prompt为空，由用户配置
       if (existingConfigs && Array.isArray(existingConfigs)) {
-        const existing = existingConfigs.find(c => c && c.actionKey === k)
+        const existing = existingConfigs.find((c) => c && c.actionKey === k)
         if (existing) {
           if (existing.label && typeof existing.label === 'string') {
             const trimmedLabel = existing.label.trim()
@@ -1243,12 +1246,12 @@ ${pageContent || '无内容'}
         }
       }
       arr.push({
-        id: 'builtin_' + k,
+        id: `builtin_${k}`,
         label,
         actionKey: k,
         icon,
         includeCharts: includeChartsMap[k] || false,
-        prompt
+        prompt,
       })
     })
     return arr
@@ -1266,9 +1269,9 @@ ${pageContent || '无内容'}
       return true
     }
     // 补齐缺失的内置项
-    const haveKeys = new Set(existing.map(c => c.actionKey))
+    const haveKeys = new Set(existing.map((c) => c.actionKey))
     let updated = false
-    defaults.forEach(d => {
+    defaults.forEach((d) => {
       if (!haveKeys.has(d.actionKey)) {
         existing.push({
           id: d.id,
@@ -1276,7 +1279,7 @@ ${pageContent || '无内容'}
           actionKey: d.actionKey,
           icon: d.icon,
           includeCharts: d.includeCharts,
-          prompt: d.prompt
+          prompt: d.prompt,
         })
         updated = true
       }

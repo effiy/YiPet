@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>上手指南 · 源码</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.stat .val.c{color:var(--cyan)}.stat .val.a{color:var(--accent)}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:12px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04)}
+th{color:var(--text3);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 5 · 上手指南</span><span class="bc-sep">/</span><span class="bc-current">📄 源码</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><span class="cross-link on">📄 源码</span><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>📄 <span class="accent">新人上手与开发指南</span> · 源码</h1>
+  <p class="sub">场景 5 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">—</div><div class="lbl">产物文件</div></div>
+        <div class="stat"><div class="val a">5</div><div class="lbl">场景</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="files">📁 文件清单</span>
+  <span class="tab" data-panel="structure">🗂 目录浏览</span>
+  <span class="tab" data-panel="topology">🔗 模块拓扑</span>
+</div>
+
+<div class="panel on" id="panelFiles">
+  <div class="section">
+    <h2><span class="dot"></span>产物文件</h2>
+    <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>环境搭建关键文件</h3><table><thead><tr><th>步骤</th><th>文件/工具</th><th>用途</th></tr></thead><tbody><tr><td>① 安装 Node.js</td><td><code>.nvmrc</code></td><td>指定 Node.js 版本</td></tr><tr><td>② 安装依赖</td><td><code>package.json</code> · <code>package-lock.json</code></td><td>vitest + @vitest/ui devDependencies</td></tr><tr><td>③ 加载扩展</td><td><code>manifest.json</code></td><td>Chrome 扩展入口 · 声明 content_scripts</td></tr><tr><td>④ 配置 Token</td><td>环境变量 <code>API_X_TOKEN</code></td><td>API 认证 Token（不落盘）</td></tr><tr><td>⑤ 加载扩展</td><td>Chrome <code>chrome://extensions</code> → 开发者模式</td><td>加载已解压扩展</td></tr><tr><td>⑥ 验证</td><td>DevTools Console</td><td><code>typeof PET_CONFIG !== 'undefined'</code></td></tr></tbody></table><h3>项目结构速查</h3><p><pre class="mermaid">flowchart LR
+    subgraph root[&quot;项目根目录&quot;]
+        direction TB
+        M[&quot;manifest.json&lt;br/&gt;扩展声明&quot;]:::core
+        PKG[&quot;package.json&lt;br/&gt;依赖管理&quot;]:::exec
+        CFG2[&quot;CLAUDE.md&lt;br/&gt;项目指南&quot;]:::note
+    end
+    subgraph dirs[&quot;核心目录&quot;]
+        direction TB
+        CORE[&quot;core/&lt;br/&gt;14 共享基础设施&quot;]:::core
+        MODS[&quot;modules/&lt;br/&gt;pet 32 · ext 12 · faq 2&quot;]:::exec
+        COMP2[&quot;components/&lt;br/&gt;9 Vue 组件&quot;]:::exec
+        TEST[&quot;tests/&lt;br/&gt;单元 + 集成测试&quot;]:::note
+        ASSETS[&quot;assets/styles/&lt;br/&gt;Tailwind + 组件 CSS&quot;]:::note
+    end
+    M --&gt; CORE &amp; MODS
+    PKG --&gt; TEST</pre></p><h3>开发命令</h3><table><thead><tr><th>命令</th><th>用途</th></tr></thead><tbody><tr><td><code>npm test</code></td><td>运行 vitest 测试套件</td></tr><tr><td><code>npm run test:ui</code></td><td>启动 vitest UI</td></tr><tr><td><code>node tests/run.mjs</code></td><td>运行测试脚本</td></tr></tbody></table><p>---</p><p><a id="sec3"></a></p>
+  </div>
+</div>
+
+<div class="panel" id="panelStructure">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    NEWBIE[&quot;新开发者&lt;br/&gt;首次接触项目&quot;]:::risk --&gt; SETUP[&quot;§1 环境搭建&lt;br/&gt;clone → 加载扩展 → 验证注入&quot;]:::exec
+    SETUP --&gt; VERIFY{&quot;宠物出现在&lt;br/&gt;任意网页上?&quot;}
+    VERIFY --&gt;|&quot;✅ 是&quot;| EXPLORE[&quot;§2 阅读架构文档&lt;br/&gt;从场景-1 模块拓扑开始&quot;]:::exec
+    VERIFY --&gt;|&quot;❌ 否&quot;| DEBUG[&quot;§3 调试&lt;br/&gt;Service Worker DevTools → 错误日志&quot;]:::milestone
+    DEBUG --&gt; VERIFY
+    EXPLORE --&gt; FIRST[&quot;§4 完成首次修改&lt;br/&gt;按常见任务 SOP 执行&quot;]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>环境搭建步骤</h3><table><thead><tr><th>#</th><th>操作</th><th>平台</th><th>验证命令</th><th>预期结果</th></tr></thead><tbody><tr><td>1</td><td>Clone 仓库</td><td>全部</td><td><code>git clone <repo-url> && cd YiPet</code></td><td>项目目录完整，含 manifest.json</td></tr><tr><td>2</td><td>加载扩展</td><td>全部</td><td>Chrome → <code>chrome://extensions</code> → 开启开发者模式 → 加载已解压的扩展 → 选择 YiPet 目录</td><td>扩展卡片出现，ID 可见</td></tr><tr><td>3</td><td>开启 Service Worker DevTools</td><td>全部</td><td>在扩展卡片点击 "Service Worker" 链接</td><td>SW DevTools 打开，Console 无报错</td></tr><tr><td>4</td><td>配置 API Token</td><td>全部</td><td>点击工具栏图标 → 设置 → 输入 Token → 保存</td><td>TokenSettingsModal 显示 "已保存"</td></tr><tr><td>5</td><td>验证宠物注入</td><td>全部</td><td>打开任意网页（如 <code>https://github.com</code>）→ 等待 3 秒</td><td>右下角出现宠物图标，可拖拽</td></tr></tbody></table><h3>三环境调试入口</h3><p><pre class="mermaid">flowchart TB
+    subgraph cs[&quot;Content Script 调试&quot;]
+        CS1[&quot;打开任意已注入网页&quot;]:::exec
+        CS2[&quot;F12 → Sources → Content Scripts&quot;]:::exec
+        CS3[&quot;找到 YiPet 扩展 → 展开文件&quot;]:::exec
+        CS4[&quot;在 petManager.core.js 设断点&quot;]:::exec
+        CS5[&quot;触发操作 → 断点命中&quot;]:::exec
+        CS1 --&gt; CS2 --&gt; CS3 --&gt; CS4 --&gt; CS5
+    end
+
+    subgraph sw[&quot;Service Worker 调试&quot;]
+        SW1[&quot;chrome://extensions → Service Worker 链接&quot;]:::exec
+        SW2[&quot;Sources → 找到 background/index.js&quot;]:::exec
+        SW3[&quot;在 MessageRouter.handle() 设断点&quot;]:::exec
+        SW4[&quot;从 Popup 触发 injectPet → 断点命中&quot;]:::exec
+    end
+
+    subgraph popup[&quot;Popup 调试&quot;]
+        PP1[&quot;右键工具栏图标 → 检查弹出内容&quot;]:::exec
+        PP2[&quot;独立 DevTools 窗口打开&quot;]:::exec
+        PP3[&quot;在 PopupController 方法中设断点&quot;]:::exec
+    end
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre></p><h3>常见任务一: 修改宠物默认行为</h3><table><thead><tr><th>#</th><th>操作</th><th>涉及文件</th><th>验证方法</th></tr></thead><tbody><tr><td>1</td><td>修改宠物默认颜色</td><td><code>core/config.js</code> → <code>PET_CONFIG.defaults.color</code></td><td>刷新页面，宠物颜色变化</td></tr><tr><td>2</td><td>修改宠物默认大小</td><td><code>core/config.js</code> → <code>PET_CONFIG.defaults.size</code></td><td>刷新页面，宠物大小变化</td></tr><tr><td>3</td><td>修改宠物默认位置</td><td><code>core/bootstrap/bootstrap.js</code> → <code>getPetDefaultPosition()</code></td><td>刷新页面，宠物在新位置出现</td></tr><tr><td>4</td><td>修改自动启动行为</td><td><code>modules/extension/background/app/register.js</code> → <code>autoStart</code> 逻辑</td><td>新页面加载时，该行为触发</td></tr><tr><td>5</td><td>卸载并重新加载扩展</td><td><code>chrome://extensions</code> → 刷新按钮</td><td>修改生效，无 JS 报错</td></tr></tbody></table><h3>常见任务二: 新增 API 端点</h3><table><thead><tr><th>#</th><th>操作</th><th>涉及文件</th><th>验证方法</th></tr></thead><tbody><tr><td>1</td><td>在 ENDPOINTS 中注册新端点</td><td><code>core/config.js</code> → <code>ENDPOINTS</code> 对象</td><td><code>console.log(ENDPOINTS)</code> 含新条目</td></tr><tr><td>2</td><td>在对应 Service 中添加调用方法</td><td><code>core/api/services/SessionService.js</code> (或其他)</td><td>方法可调用，URL 正确拼接</td></tr><tr><td>3</td><td>在 PetManager 子模块中消费</td><td><code>modules/pet/content/session/petManager.session.crud.js</code> (或其他)</td><td>PetManager 实例可调用新方法</td></tr><tr><td>4</td><td>如需 UI，在 Vue 组件中绑定</td><td><code>modules/pet/components/chat/ChatWindow/index.js</code> (或其他)</td><td>UI 中触发新功能</td></tr><tr><td>5</td><td>端到端验证</td><td>DevTools Network 面板</td><td>新 API 请求发出，响应正确解析</td></tr></tbody></table><h3>常见任务三: 添加 Vue 组件</h3><table><thead><tr><th>#</th><th>操作</th><th>涉及文件</th><th>验证方法</th></tr></thead><tbody><tr><td>1</td><td>创建组件目录和 index.js</td><td><code>modules/pet/components/NewComponent/index.js</code></td><td>文件创建，IIFE 格式正确</td></tr><tr><td>2</td><td>在 manifest.json 中注册加载顺序</td><td><code>manifest.json</code> → <code>content_scripts[0].js</code>，放在 vue.global.js 之后</td><td>加载顺序正确</td></tr><tr><td>3</td><td>在 InjectionService 中更新文件列表</td><td><code>modules/extension/background/services/injectionService.js</code></td><td>CONTENT_SCRIPT_FILES 包含新文件</td></tr><tr><td>4</td><td>在 PetManager 中集成组件实例化</td><td><code>modules/pet/content/modules/petManager.*.js</code> (对应装配模块)</td><td>组件在 petManager 实例上可访问</td></tr><tr><td>5</td><td>卸载并重新加载扩展</td><td><code>chrome://extensions</code> → 刷新</td><td>新组件正常渲染，无 JS 报错</td></tr></tbody></table><h3>前置知识要求</h3><table><thead><tr><th>知识领域</th><th>要求水平</th><th>学习资源</th></tr></thead><tbody><tr><td>JavaScript ES6+</td><td>熟练</td><td>MDN 文档</td></tr><tr><td>Chrome Extension Manifest V3</td><td>了解</td><td>Chrome 官方文档</td></tr><tr><td>Vue 3 Options API</td><td>了解</td><td>Vue 3 官方指南</td></tr><tr><td>IIFE 模块模式</td><td>了解</td><td>场景-1 模块拓扑文档</td></tr><tr><td>Chrome DevTools</td><td>熟练</td><td>Google 官方教程</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>环境搭建步骤 5 步以内完成</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>三环境调试入口均有明确路径</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>3 类常见任务 SOP 每步可验证</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>平台差异有标注（macOS/Windows/Linux）</td><td style="text-align:center">✅</td></tr><tr><td>5</td><td>前置知识要求明确且可自学</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelTopology">
+  <pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    NEWBIE["新开发者&lt;br/&gt;首次接触项目"]:::risk --&gt; SETUP["§1 环境搭建&lt;br/&gt;clone → 加载扩展 → 验证注入"]:::exec
+    SETUP --&gt; VERIFY{"宠物出现在&lt;br/&gt;任意网页上?"}
+    VERIFY --&gt;|"✅ 是"| EXPLORE["§2 阅读架构文档&lt;br/&gt;从场景-1 模块拓扑开始"]:::exec
+    VERIFY --&gt;|"❌ 否"| DEBUG["§3 调试&lt;br/&gt;Service Worker DevTools → 错误日志"]:::milestone
+    DEBUG --&gt; VERIFY
+    EXPLORE --&gt; FIRST["§4 完成首次修改&lt;br/&gt;按常见任务 SOP 执行"]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph cs["Content Script 调试"]
+        CS1["打开任意已注入网页"]:::exec
+        CS2["F12 → Sources → Content Scripts"]:::exec
+        CS3["找到 YiPet 扩展 → 展开文件"]:::exec
+        CS4["在 petManager.core.js 设断点"]:::exec
+        CS5["触发操作 → 断点命中"]:::exec
+        CS1 --&gt; CS2 --&gt; CS3 --&gt; CS4 --&gt; CS5
+    end
+
+    subgraph sw["Service Worker 调试"]
+        SW1["chrome://extensions → Service Worker 链接"]:::exec
+        SW2["Sources → 找到 background/index.js"]:::exec
+        SW3["在 MessageRouter.handle() 设断点"]:::exec
+        SW4["从 Popup 触发 injectPet → 断点命中"]:::exec
+    end
+
+    subgraph popup["Popup 调试"]
+        PP1["右键工具栏图标 → 检查弹出内容"]:::exec
+        PP2["独立 DevTools 窗口打开"]:::exec
+        PP3["在 PopupController 方法中设断点"]:::exec
+    end
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart LR
+    subgraph root["项目根目录"]
+        direction TB
+        M["manifest.json&lt;br/&gt;扩展声明"]:::core
+        PKG["package.json&lt;br/&gt;依赖管理"]:::exec
+        CFG2["CLAUDE.md&lt;br/&gt;项目指南"]:::note
+    end
+    subgraph dirs["核心目录"]
+        direction TB
+        CORE["core/&lt;br/&gt;14 共享基础设施"]:::core
+        MODS["modules/&lt;br/&gt;pet 32 · ext 12 · faq 2"]:::exec
+        COMP2["components/&lt;br/&gt;9 Vue 组件"]:::exec
+        TEST["tests/&lt;br/&gt;单元 + 集成测试"]:::note
+        ASSETS["assets/styles/&lt;br/&gt;Tailwind + 组件 CSS"]:::note
+    end
+    M --&gt; CORE &amp; MODS
+    PKG --&gt; TEST</pre>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>核心逻辑 · 源码</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+.stat .val.c{color:var(--cyan)}.stat .val.a{color:var(--accent)}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:12px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04)}
+th{color:var(--text3);font-weight:600;font-size:.74rem;text-transform:uppercase}
+td{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 1 · 核心逻辑</span><span class="bc-sep">/</span><span class="bc-current">📄 源码</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><span class="cross-link on">📄 源码</span><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>📄 <span class="accent">核心逻辑测试</span> · 源码</h1>
+  <p class="sub">场景 1 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">—</div><div class="lbl">产物文件</div></div>
+        <div class="stat"><div class="val a">1</div><div class="lbl">场景</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="files">📁 文件清单</span>
+  <span class="tab" data-panel="structure">🗂 目录浏览</span>
+  <span class="tab" data-panel="topology">🔗 模块拓扑</span>
+</div>
+
+<div class="panel on" id="panelFiles">
+  <div class="section">
+    <h2><span class="dot"></span>产物文件</h2>
+    <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>测试文件清单</h3><table><thead><tr><th>测试文件</th><th>覆盖模块</th><th>测试类型</th></tr></thead><tbody><tr><td><code>tests/unit/config.test.mjs</code></td><td><code>core/config.js</code></td><td>单元测试 · DEFAULT_CONFIG 结构 · 环境切换</td></tr><tr><td><code>tests/unit/token.test.mjs</code></td><td><code>core/utils/api/token.js</code></td><td>单元测试 · TokenManager 三级降级 · 缓存策略</td></tr><tr><td><code>tests/lib/chrome-mock.mjs</code></td><td>Chrome API mock</td><td>测试基础设施 · chrome.storage.local mock</td></tr><tr><td><code>tests/lib/load-module.mjs</code></td><td>IIFE 模块加载器</td><td>测试基础设施 · 动态加载 content script 模块</td></tr><tr><td><code>tests/lib/test-utils.mjs</code></td><td>通用测试工具</td><td>fetch mock · 断言辅助</td></tr><tr><td><code>tests/setup.mjs</code></td><td>全局测试配置</td><td>vitest setup · 全局变量清理</td></tr></tbody></table><h3>测试依赖链</h3><p><pre class="mermaid">flowchart LR
+    SETUP[&quot;tests/setup.mjs&quot;] --&gt; LOAD[&quot;load-module.mjs&quot;]
+    LOAD --&gt; MOCK[&quot;chrome-mock.mjs&quot;]
+    MOCK --&gt; CONFIG[&quot;config.test.mjs&quot;]
+    MOCK --&gt; TOKEN[&quot;token.test.mjs&quot;]
+    CONFIG --&gt; ASSERT[&quot;vitest expect&quot;]
+    TOKEN --&gt; ASSERT</pre></p><h3>覆盖的核心逻辑</h3><table><thead><tr><th>功能点</th><th>测试覆盖</th></tr></thead><tbody><tr><td>PET_CONFIG 默认配置结构</td><td><code>config.test.mjs</code> · DEFAULT_CONFIG 全部字段</td></tr><tr><td>环境模式切换（dev/prod）</td><td><code>config.test.mjs</code> · PET_ENV 覆盖</td></tr><tr><td>TokenManager 三级降级</td><td><code>token.test.mjs</code> · env → storage → empty</td></tr><tr><td>Token 缓存与刷新</td><td><code>token.test.mjs</code> · TTL · 并发安全</td></tr><tr><td>Token 设置/清除</td><td><code>token.test.mjs</code> · setToken · clearToken</td></tr></tbody></table><p>---</p><p><a id="sec3"></a></p>
+  </div>
+</div>
+
+<div class="panel" id="panelStructure">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;修改 config.js 默认值&quot;]:::risk --&gt; TEST[&quot;npx vitest run&lt;br/&gt;tests/unit/config.test.mjs&quot;]:::exec
+    TEST --&gt; CHECK{&quot;默认值合并&lt;br/&gt;是否正确?&quot;}
+    CHECK --&gt;|&quot;✅ 通过&quot;| CONFIDENT[&quot;提交变更&quot;]:::goal
+    CHECK --&gt;|&quot;❌ 失败&quot;| FIX[&quot;修复默认值或更新测试断言&quot;]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>测试框架配置架构</h3><p><pre class="mermaid">flowchart TB
+    subgraph pkg[&quot;package.json&quot;]
+        DEPS[&quot;devDependencies&lt;br/&gt;vitest · jsdom · @vitest/coverage-v8&quot;]:::note
+        SCRIPTS[&quot;scripts&lt;br/&gt;test: vitest run&lt;br/&gt;test:watch: vitest&lt;br/&gt;test:coverage: vitest run --coverage&quot;]:::note
+    end
+    subgraph cfg[&quot;vitest.config.js&quot;]
+        ENV[&quot;environment: 'jsdom'&quot;]:::core
+        GLOBALS[&quot;globals: true&quot;]:::core
+        SETUP[&quot;setupFiles: ['./tests/setup.mjs']&quot;]:::core
+        INCLUDE[&quot;include: ['tests/**/*.test.mjs']&quot;]:::core
+    end
+    subgraph setup[&quot;tests/setup.mjs&quot;]
+        CHROME[&quot;chrome.storage.local mock (Map)&quot;]:::exec
+        RUNTIME[&quot;chrome.runtime.id + lastError&quot;]:::exec
+        LOADER[&quot;loadModule helper (Function 构造器)&quot;]:::exec
+        FETCH_MOCK[&quot;globalThis.fetch = vi.fn()&quot;]:::exec
+    end
+    pkg --&gt; cfg --&gt; setup
+
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre></p><h3>框架能力矩阵</h3><table><thead><tr><th>能力</th><th>实现方式</th><th>依赖</th></tr></thead><tbody><tr><td>测试运行</td><td><code>npx vitest run</code> — 全量测试</td><td>vitest</td></tr><tr><td>断言与 Mock</td><td><code>describe</code>/<code>it</code>/<code>expect</code> + <code>vi.fn()</code> + <code>vi.spyOn()</code></td><td>vitest</td></tr><tr><td>浏览器环境</td><td><code>environment: 'jsdom'</code> — window/document/navigator</td><td>jsdom</td></tr><tr><td>Chrome API Mock</td><td><code>globalThis.chrome = { storage: new Map(), runtime: { id, lastError } }</code></td><td>setup.mjs</td></tr><tr><td>IIFE 加载</td><td><code>new Function('globalThis', sourceCode)()</code> — 注入全局上下文</td><td>setup.mjs</td></tr></tbody></table><h3>测试层级</h3><p><pre class="mermaid">flowchart TB
+    subgraph L1[&quot;L1 三方库 — 测试基础设施&quot;]
+        VIT[&quot;vitest · jsdom · coverage-v8&quot;]:::cross
+    end
+    subgraph L2[&quot;L2 场景 — 测试关注面&quot;]
+        S1[&quot;场景-1 核心逻辑&quot;]:::exec
+        S2[&quot;场景-2 API 接口&quot;]:::exec
+        S3[&quot;场景-3 数据持久化&quot;]:::exec
+        S4[&quot;场景-4 异常边界&quot;]:::exec
+        S5[&quot;场景-5 集成回归&quot;]:::exec
+    end
+    subgraph L3[&quot;L3 源文件 — 被测目标&quot;]
+        F1[&quot;core/config.js&lt;br/&gt;core/utils/api/token.js&quot;]:::note
+        F2[&quot;core/utils/api/request.js&lt;br/&gt;core/api/core/ApiManager.js&quot;]:::note
+        F3[&quot;core/utils/storage/&lt;br/&gt;core/bootstrap/&quot;]:::note
+        F4[&quot;core/utils/api/error.js&quot;]:::note
+        F5[&quot;core/api/services/&lt;br/&gt;modules/&quot;]:::note
+    end
+    L1 --&gt; L2 --&gt; L3
+    S1 --&gt; F1
+    S2 --&gt; F2
+    S3 --&gt; F3
+    S4 --&gt; F4
+    S5 --&gt; F5
+
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c</pre></p><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>关键导出</th><th>测试覆盖点</th></tr></thead><tbody><tr><td>core/config.js</td><td>PET_CONFIG, config, ENDPOINTS, buildUrl</td><td>默认值合并 · envInfo 注入 · endpoints 路径 · URL 构建 · 查询参数拼接</td></tr><tr><td>core/utils/api/token.js</td><td>TokenManager, tokenManager, TokenUtils</td><td>L1 环境变量 → L2 storage → L3 空 · validateToken 格式/长度 · set/get/remove</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>测试框架配置完整（vitest.config.js + setup.mjs）</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>chrome.storage.local mock 使用 Map 实现，涵盖 get/set/remove/clear</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>IIFE 加载器可正确注入 globalThis 上下文</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>被测模块覆盖率目标 ≥ 80%</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelTopology">
+  <pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["修改 config.js 默认值"]:::risk --&gt; TEST["npx vitest run&lt;br/&gt;tests/unit/config.test.mjs"]:::exec
+    TEST --&gt; CHECK{"默认值合并&lt;br/&gt;是否正确?"}
+    CHECK --&gt;|"✅ 通过"| CONFIDENT["提交变更"]:::goal
+    CHECK --&gt;|"❌ 失败"| FIX["修复默认值或更新测试断言"]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph pkg["package.json"]
+        DEPS["devDependencies&lt;br/&gt;vitest · jsdom · @vitest/coverage-v8"]:::note
+        SCRIPTS["scripts&lt;br/&gt;test: vitest run&lt;br/&gt;test:watch: vitest&lt;br/&gt;test:coverage: vitest run --coverage"]:::note
+    end
+    subgraph cfg["vitest.config.js"]
+        ENV["environment: 'jsdom'"]:::core
+        GLOBALS["globals: true"]:::core
+        SETUP["setupFiles: ['./tests/setup.mjs']"]:::core
+        INCLUDE["include: ['tests/**/*.test.mjs']"]:::core
+    end
+    subgraph setup["tests/setup.mjs"]
+        CHROME["chrome.storage.local mock (Map)"]:::exec
+        RUNTIME["chrome.runtime.id + lastError"]:::exec
+        LOADER["loadModule helper (Function 构造器)"]:::exec
+        FETCH_MOCK["globalThis.fetch = vi.fn()"]:::exec
+    end
+    pkg --&gt; cfg --&gt; setup
+
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart TB
+    subgraph L1["L1 三方库 — 测试基础设施"]
+        VIT["vitest · jsdom · coverage-v8"]:::cross
+    end
+    subgraph L2["L2 场景 — 测试关注面"]
+        S1["场景-1 核心逻辑"]:::exec
+        S2["场景-2 API 接口"]:::exec
+        S3["场景-3 数据持久化"]:::exec
+        S4["场景-4 异常边界"]:::exec
+        S5["场景-5 集成回归"]:::exec
+    end
+    subgraph L3["L3 源文件 — 被测目标"]
+        F1["core/config.js&lt;br/&gt;core/utils/api/token.js"]:::note
+        F2["core/utils/api/request.js&lt;br/&gt;core/api/core/ApiManager.js"]:::note
+        F3["core/utils/storage/&lt;br/&gt;core/bootstrap/"]:::note
+        F4["core/utils/api/error.js"]:::note
+        F5["core/api/services/&lt;br/&gt;modules/"]:::note
+    end
+    L1 --&gt; L2 --&gt; L3
+    S1 --&gt; F1
+    S2 --&gt; F2
+    S3 --&gt; F3
+    S4 --&gt; F4
+    S5 --&gt; F5
+
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c</pre>
+<pre class="mermaid">flowchart LR
+    SETUP["tests/setup.mjs"] --&gt; LOAD["load-module.mjs"]
+    LOAD --&gt; MOCK["chrome-mock.mjs"]
+    MOCK --&gt; CONFIG["config.test.mjs"]
+    MOCK --&gt; TOKEN["token.test.mjs"]
+    CONFIG --&gt; ASSERT["vitest expect"]
+    TOKEN --&gt; ASSERT</pre>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+</script>
+</body>
+</html>

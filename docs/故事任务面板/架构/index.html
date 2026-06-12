@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>yipet-arch · 系统架构知识固化</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<style>
+:root {
+  --bg-content: var(--yry-bg, rgba(22,22,32,1));
+  --bg-card: var(--yry-bg-card, linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%));
+  --color-accent: var(--yry-accent, #FFC107);
+  --color-accent-2: var(--yry-cyan, #22d3ee);
+  --text-primary: var(--yry-text, rgba(250,250,252,1));
+  --text-secondary: var(--yry-text2, rgba(160,160,164,1));
+  --text-muted: var(--yry-text3, rgba(110,110,114,1));
+  --shadow-card: var(--yry-shadow, 0 4px 20px rgba(0,0,0,0.3));
+  --radius-card: var(--yry-radius, 12px);
+  --border-subtle: var(--yry-border, 1px solid rgba(255,255,255,0.06));
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; min-height: 100vh; }
+.si-container { max-width: 900px; margin: 0 auto; padding: 48px 24px 80px; }
+.si-bc { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; font-size: .76rem; }
+.si-bc a { color: var(--color-accent-2); text-decoration: none; transition: color 0.15s; }
+.si-bc a:hover { color: var(--color-accent); }
+.si-bc .si-bc-sep { color: var(--text-muted); opacity: .4; }
+.si-bc .si-bc-cur { color: var(--text-secondary); }
+.si-header { text-align: center; margin-bottom: 32px; }
+.si-header h1 { font-size: 1.8rem; font-weight: 700; }
+.si-header h1 .accent { color: var(--color-accent); }
+.si-header .si-meta { color: var(--text-muted); font-size: .85rem; margin-top: 6px; }
+.si-stats { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+.si-stat { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 16px 24px; text-align: center; box-shadow: var(--shadow-card); min-width: 120px; }
+.si-stat .num { font-size: 1.8rem; font-weight: 700; color: var(--color-accent); }
+.si-stat .label { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
+.si-card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 24px; box-shadow: var(--shadow-card); margin-bottom: 20px; }
+.si-scene-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.si-scene-item { background: rgba(255,255,255,0.02); border: var(--border-subtle); border-radius: 8px; padding: 16px; transition: all 0.2s; }
+.si-scene-item:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,193,7,0.2); transform: translateY(-2px); }
+.si-scene-num { font-size: .7rem; color: var(--color-accent); font-weight: 600; margin-bottom: 4px; }
+.si-scene-name { font-size: .95rem; font-weight: 600; margin-bottom: 8px; }
+.si-scene-name a { color: var(--color-accent-2); text-decoration: none; transition: color 0.15s; }
+.si-scene-name a:hover { color: var(--color-accent); }
+.si-scene-links { display: flex; flex-wrap: wrap; gap: 6px; font-size: .72rem; }
+.si-scene-links a { color: var(--color-accent-2); text-decoration: none; padding: 2px 8px; border-radius: 4px; background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.12); transition: all 0.15s; }
+.si-scene-links a:hover { background: rgba(34,211,238,0.15); color: var(--color-accent); }
+.si-footer { text-align: center; color: var(--text-muted); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border-subtle); }
+.si-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
+.si-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.15); color: var(--color-accent-2); text-decoration: none; font-size: .82rem; transition: all .15s; }
+.si-link:hover { background: rgba(59,130,246,.15); color: var(--color-accent); }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.si-container { animation: fadeInDown 0.4s ease both; }
+</style>
+</head>
+<body>
+<div class="si-container">
+
+<nav class="si-bc">
+  <a href="../../index.html">📄 文档中心</a>
+  <span class="si-bc-sep">▸</span>
+  <a href="../index.json">📋 故事任务面板</a>
+  <span class="si-bc-sep">▸</span>
+  <span class="si-bc-cur">🏗️ yipet-arch</span>
+</nav>
+
+<div class="si-header">
+  <h1><span class="accent">🏗️</span> yipet-arch · 系统架构知识固化</h1>
+  <div class="si-meta">YiPet Chrome Extension 架构全景分析 · 5 个场景 · v2.0.0</div>
+</div>
+
+<div class="si-stats">
+  <div class="si-stat"><div class="num">5</div><div class="label">场景</div></div>
+  <div class="si-stat"><div class="num">35</div><div class="label">HTML 文件</div></div>
+  <div class="si-stat"><div class="num">2.0.0</div><div class="label">版本</div></div>
+</div>
+
+<div class="si-card">
+  <h2 style="font-size: 1.1rem; margin-bottom: 16px; color: var(--color-accent);">📋 场景列表</h2>
+  <div class="si-scene-list">
+    <div class="si-scene-item">
+      <div class="si-scene-num">场景 1</div>
+      <div class="si-scene-name"><a href="场景-1-模块拓扑/计划清单.html">模块地图与拓扑</a></div>
+      <div class="si-scene-links">
+        <a href="场景-1-模块拓扑/计划清单.html">📋 清单</a>
+        <a href="场景-1-模块拓扑/架构图.html">📐 架构</a>
+        <a href="场景-1-模块拓扑/知识图谱.html">🔗 图谱</a>
+        <a href="场景-1-模块拓扑/源码.html">📄 源码</a>
+        <a href="场景-1-模块拓扑/测试面板.html">🧪 测试</a>
+        <a href="场景-1-模块拓扑/演示.html">💡 演示</a>
+        <a href="场景-1-模块拓扑/审查.html">📝 审查</a>
+      </div>
+    </div>
+    <div class="si-scene-item">
+      <div class="si-scene-num">场景 2</div>
+      <div class="si-scene-name"><a href="场景-2-数据流追踪/计划清单.html">数据流与追踪</a></div>
+      <div class="si-scene-links">
+        <a href="场景-2-数据流追踪/计划清单.html">📋 清单</a>
+        <a href="场景-2-数据流追踪/架构图.html">📐 架构</a>
+        <a href="场景-2-数据流追踪/知识图谱.html">🔗 图谱</a>
+        <a href="场景-2-数据流追踪/源码.html">📄 源码</a>
+        <a href="场景-2-数据流追踪/测试面板.html">🧪 测试</a>
+        <a href="场景-2-数据流追踪/演示.html">💡 演示</a>
+        <a href="场景-2-数据流追踪/审查.html">📝 审查</a>
+      </div>
+    </div>
+    <div class="si-scene-item">
+      <div class="si-scene-num">场景 3</div>
+      <div class="si-scene-name"><a href="场景-3-安全边界/计划清单.html">信任边界与安全面</a></div>
+      <div class="si-scene-links">
+        <a href="场景-3-安全边界/计划清单.html">📋 清单</a>
+        <a href="场景-3-安全边界/架构图.html">📐 架构</a>
+        <a href="场景-3-安全边界/知识图谱.html">🔗 图谱</a>
+        <a href="场景-3-安全边界/源码.html">📄 源码</a>
+        <a href="场景-3-安全边界/测试面板.html">🧪 测试</a>
+        <a href="场景-3-安全边界/演示.html">💡 演示</a>
+        <a href="场景-3-安全边界/审查.html">📝 审查</a>
+      </div>
+    </div>
+    <div class="si-scene-item">
+      <div class="si-scene-num">场景 4</div>
+      <div class="si-scene-name"><a href="场景-4-依赖影响/计划清单.html">依赖关系与变更影响</a></div>
+      <div class="si-scene-links">
+        <a href="场景-4-依赖影响/计划清单.html">📋 清单</a>
+        <a href="场景-4-依赖影响/架构图.html">📐 架构</a>
+        <a href="场景-4-依赖影响/知识图谱.html">🔗 图谱</a>
+        <a href="场景-4-依赖影响/源码.html">📄 源码</a>
+        <a href="场景-4-依赖影响/测试面板.html">🧪 测试</a>
+        <a href="场景-4-依赖影响/演示.html">💡 演示</a>
+        <a href="场景-4-依赖影响/审查.html">📝 审查</a>
+      </div>
+    </div>
+    <div class="si-scene-item">
+      <div class="si-scene-num">场景 5</div>
+      <div class="si-scene-name"><a href="场景-5-上手指南/计划清单.html">新人上手与开发指南</a></div>
+      <div class="si-scene-links">
+        <a href="场景-5-上手指南/计划清单.html">📋 清单</a>
+        <a href="场景-5-上手指南/架构图.html">📐 架构</a>
+        <a href="场景-5-上手指南/知识图谱.html">🔗 图谱</a>
+        <a href="场景-5-上手指南/源码.html">📄 源码</a>
+        <a href="场景-5-上手指南/测试面板.html">🧪 测试</a>
+        <a href="场景-5-上手指南/演示.html">💡 演示</a>
+        <a href="场景-5-上手指南/审查.html">📝 审查</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="si-links">
+  <a class="si-link" href="../../index.html">🏠 返回首页</a>
+  <a class="si-link" href="知识图谱.html">🔗 知识图谱</a>
+  <a class="si-link" href="演示/index.html">💡 演示中心</a>
+  <a class="si-link" href="../index.json">📋 故事索引</a>
+</div>
+
+<div class="si-footer">
+  yipet-arch · 系统架构知识固化<br>
+  <span style="color:var(--text-muted)">YiPet Chrome Extension · v2.0.0</span>
+</div>
+
+</div>
+</body>
+</html>

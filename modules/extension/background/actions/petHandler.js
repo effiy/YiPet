@@ -7,7 +7,7 @@
  * 获取注入服务实例
  * @returns {InjectionService|null} 注入服务实例或null
  */
-function getInjectionService () {
+function getInjectionService() {
   if (typeof self !== 'undefined' && self.InjectionService) {
     return self.InjectionService
   }
@@ -20,13 +20,11 @@ function getInjectionService () {
  * @param {Function} serviceMethod - 服务方法名（字符串）或方法引用
  * @param {string} errorMessage - 错误消息
  */
-function executeInjection (tabId, serviceMethod, errorMessage) {
+function executeInjection(tabId, serviceMethod, errorMessage) {
   const injectionService = getInjectionService()
 
   if (injectionService) {
-    const method = typeof serviceMethod === 'string'
-      ? injectionService[serviceMethod]
-      : serviceMethod
+    const method = typeof serviceMethod === 'string' ? injectionService[serviceMethod] : serviceMethod
 
     if (typeof method === 'function') {
       method.call(injectionService, tabId)
@@ -41,7 +39,7 @@ function executeInjection (tabId, serviceMethod, errorMessage) {
 /**
  * 处理注入宠物请求
  */
-function handleInjectPet (request, sender, sendResponse) {
+function handleInjectPet(request, sender, sendResponse) {
   const tabId = request.tabId || sender.tab?.id
   if (!tabId) {
     sendResponse({ success: false, error: '无法获取标签页ID' })
@@ -53,7 +51,7 @@ function handleInjectPet (request, sender, sendResponse) {
   const success = executeInjection(
     tabId,
     'injectPetToTab',
-    '无法注入宠物：InjectionService 未加载且 injectPetToTab 函数不存在'
+    '无法注入宠物：InjectionService 未加载且 injectPetToTab 函数不存在',
   )
 
   sendResponse({ success })
@@ -62,7 +60,7 @@ function handleInjectPet (request, sender, sendResponse) {
 /**
  * 处理移除宠物请求
  */
-function handleRemovePet (request, sender, sendResponse) {
+function handleRemovePet(request, sender, sendResponse) {
   const tabId = sender.tab?.id
   if (!tabId) {
     sendResponse({ success: false, error: '无法获取标签页ID' })
@@ -72,7 +70,7 @@ function handleRemovePet (request, sender, sendResponse) {
   const success = executeInjection(
     tabId,
     'removePetFromTab',
-    '无法移除宠物：InjectionService 未加载且 removePetFromTab 函数不存在'
+    '无法移除宠物：InjectionService 未加载且 removePetFromTab 函数不存在',
   )
 
   sendResponse({ success })
@@ -82,13 +80,13 @@ function handleRemovePet (request, sender, sendResponse) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     handleInjectPet,
-    handleRemovePet
+    handleRemovePet,
   }
 } else {
   if (typeof self !== 'undefined') {
     self.PetHandler = {
       handleInjectPet,
-      handleRemovePet
+      handleRemovePet,
     }
   }
 }

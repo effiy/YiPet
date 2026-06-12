@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatInput 使用事例 — YiPet Demo</title>
+  <style>
+    :root {
+      --bg-content: rgba(22,22,32,1);
+      --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+      --color-accent: #FFC107; --color-accent-2: #22d3ee; --color-accent-3: #a855f7;
+      --text-primary: rgba(250,250,252,1); --text-secondary: rgba(160,160,164,1); --text-muted: rgba(110,110,114,1);
+      --shadow-card: 0 4px 20px rgba(0,0,0,0.3); --radius-card: 12px; --border-subtle: 1px solid rgba(255,255,255,0.06);
+      --green: #34d399; --red: #f87171; --amber: #f59e0b; --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .topbar { position: sticky; top: 0; z-index: 10; background: rgba(22,22,32,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .topbar a { color: var(--color-accent); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .main { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+    section { margin-bottom: 40px; }
+    section h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-accent-2); }
+    section > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .card { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 18px; overflow-x: auto; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.8rem; line-height: 1.65; color: var(--text-secondary); }
+    pre .kw { color: var(--color-accent-3); } pre .fn { color: var(--color-accent-2); } pre .str { color: #34d399; } pre .cm { color: #666; } pre .num { color: var(--amber); }
+    .demo-box { background: var(--bg-card); border: var(--border-subtle); border-radius: var(--radius-card); padding: 20px 24px; margin: 16px 0; }
+    .demo-box h4 { font-size: 0.88rem; font-weight: 600; color: var(--color-accent-2); margin-bottom: 12px; }
+    .output { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 12px 16px; font-family: "SF Mono", monospace; font-size: 0.76rem; color: var(--text-secondary); max-height: 200px; overflow-y: auto; line-height: 1.7; }
+    .output .key { color: var(--color-accent); } .output .val { color: var(--color-accent-2); }
+    .input-preview { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 12px 0; }
+    .input-preview textarea { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: inherit; font-size: 0.82rem; resize: none; min-height: 60px; }
+    .input-toolbar { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+    .toolbar-btn { padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer; font-size: 0.7rem; font-family: inherit; }
+    .toolbar-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+    .toolbar-btn.active { border-color: var(--color-accent-2); color: var(--color-accent-2); }
+    .draft-img { display: inline-block; width: 48px; height: 48px; border-radius: 4px; background: rgba(255,255,255,0.06); margin: 4px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+    .btn { display: inline-block; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: inherit; border: 1px solid var(--color-accent-2); background: rgba(34,211,238,0.08); color: var(--color-accent-2); transition: all 0.15s; margin-top: 12px; margin-right: 8px; }
+    .btn:hover { background: var(--color-accent-2); color: #1a1a2a; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.82rem; }
+    th, td { padding: 6px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    th { color: var(--text-muted); font-weight: 600; font-size: 0.74rem; }
+    td code { color: var(--color-accent); font-family: "SF Mono", monospace; font-size: 0.78rem; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+    footer a { color: var(--color-accent); text-decoration: none; } footer a:hover { text-decoration: underline; }
+    @media (max-width: 768px) { .main { padding: 20px 12px 48px; } pre { font-size: 0.72rem; padding: 10px 12px; } }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../index.html">← 返回 Demo 中心</a>
+  <h1>ChatInput 使用事例</h1>
+</div>
+<div class="main">
+
+<section id="overview">
+  <h2>概述</h2>
+  <p>ChatInput 管理聊天输入区域，包括 textarea 自动高度、Enter 发送、图片粘贴/上传、草稿图片管理、工具栏按钮（页面上下文/编辑会话/标签管理/FAQ/微信机器人/图片上传）、上下文开关、请求状态按钮。</p>
+</section>
+
+<section id="toolbar">
+  <h2>工具栏按钮</h2>
+  <div class="card">
+    <table>
+      <tr><th>按钮</th><th>data-action</th><th>行为</th></tr>
+      <tr><td>📝 页面上下文</td><td><code>context</code></td><td>manager.openContextEditor()</td></tr>
+      <tr><td>✏️ 编辑会话</td><td><code>edit-session</code></td><td>manager.editSessionTitle(sessionId)</td></tr>
+      <tr><td>🏷️ 标签管理</td><td><code>tag-manager</code></td><td>打开 SessionTagManager</td></tr>
+      <tr><td>💡 常见问题</td><td><code>faq</code></td><td>打开 FaqManager</td></tr>
+      <tr><td>🤖 微信机器人</td><td><code>wechat</code></td><td>manager.openWeChatSettings()</td></tr>
+      <tr><td>🖼️ 上传图片</td><td><code>image</code></td><td>触发隐藏的 file input</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="textarea">
+  <h2>输入框行为</h2>
+  <div class="card">
+    <h3>键盘事件 · 自动高度 · 粘贴图片 · IME 组合输入</h3>
+<pre><span class="cm">// Enter 发送 (Shift+Enter 换行)</span>
+<span class="fn">onTextareaKeydown</span>(e) {
+  <span class="kw">if</span> (e.key === <span class="str">'Escape'</span>) { 清空输入; blur }
+  <span class="kw">if</span> (e.key === <span class="str">'Enter'</span> && !e.shiftKey) {
+    <span class="kw">if</span> (isComposing) <span class="kw">return</span>  <span class="cm">// 忽略 IME 组合中的 Enter</span>
+    instance.<span class="fn">sendMessage</span>()
+  }
+}
+
+<span class="cm">// 自动高度: textarea.style.height = Math.max(60, scrollHeight)</span>
+<span class="fn">updateTextareaHeight</span>()
+
+<span class="cm">// 粘贴图片: 读取 clipboardData 中的 image 项 → FileReader → dataURL</span>
+<span class="fn">onTextareaPaste</span>(e)</pre>
+  </div>
+</section>
+
+<section id="images">
+  <h2>草稿图片管理</h2>
+  <div class="card">
+    <h3>最多 4 张 · 预览/删除/清空</h3>
+<pre><span class="kw">this</span>.maxDraftImages = <span class="num">4</span>
+<span class="kw">this</span>.draftImages = []              <span class="cm">// dataURL 数组</span>
+
+<span class="fn">updateDraftImagesDisplay</span>(instance)  <span class="cm">// 渲染图片缩略图 + 清空按钮</span>
+<span class="fn">handleImageInputChange</span>(manager, instance, e)  <span class="cm">// file input 变更处理</span>
+<span class="fn">removeDraftImage</span>(instance, index)   <span class="cm">// 移除单张</span>
+<span class="fn">clearDraftImages</span>(instance)          <span class="cm">// 清空全部</span>
+<span class="fn">previewDraftImage</span>(src, index)       <span class="cm">// 全屏预览</span></pre>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>交互演示 — 输入框模拟</h2>
+  <div class="demo-box">
+    <h4>ChatInput 预览</h4>
+    <div class="input-preview">
+      <div class="input-toolbar">
+        <button class="toolbar-btn" onclick="logAction('context')">📝 上下文</button>
+        <button class="toolbar-btn" onclick="logAction('edit')">✏️ 编辑</button>
+        <button class="toolbar-btn" onclick="logAction('tag')">🏷️ 标签</button>
+        <button class="toolbar-btn" onclick="logAction('faq')">💡 FAQ</button>
+        <button class="toolbar-btn" onclick="logAction('wechat')">🤖 微信</button>
+        <button class="toolbar-btn" onclick="logDraft()">🖼️ 图片 <span id="draftCount" style="font-size:0.65rem;">0</span></button>
+        <span style="flex:1;"></span>
+        <span style="font-size:0.7rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+          <span class="toolbar-btn" id="ctxSwitch" style="cursor:pointer;" onclick="toggleCtx()">上下文 ON</span>
+          <span class="toolbar-btn">⏹️</span>
+        </span>
+      </div>
+      <div id="draftArea" style="min-height:4px;"></div>
+      <textarea id="demoInput" placeholder="输入消息... (Enter 发送，Shift+Enter 换行)" rows="2"></textarea>
+    </div>
+    <div class="output" id="actionLog"><span class="key">操作日志</span> → <span class="val">等待输入...</span></div>
+    <button class="btn" onclick="sendMsg()">▶ 模拟发送</button>
+  </div>
+</section>
+
+<footer>
+  YiPet Demos · <a href="../index.html">Demo 中心</a> · <a href="../../docs/index.html">文档中心</a> · <a href="../../CLAUDE.md">CLAUDE.md</a>
+</footer>
+</div>
+
+<script>
+var draftCount = 0;
+var ctxOn = true;
+
+function logAction(type) {
+  var el = document.getElementById('actionLog');
+  var map = {
+    context: 'manager.openContextEditor() — 打开页面上下文编辑器',
+    edit: 'manager.editSessionTitle(sessionId) — 编辑当前会话标题',
+    tag: 'openTagManagerSafe(manager) → SessionTagManager',
+    faq: 'openFaqManagerSafe(manager) → FaqManager 常见问题面板',
+    wechat: 'manager.openWeChatSettings() — 微信机器人设置'
+  };
+  el.innerHTML = '<span class="key">' + type + '</span> → <span class="val">' + (map[type] || '') + '</span>';
+}
+
+function toggleCtx() {
+  ctxOn = !ctxOn;
+  var btn = document.getElementById('ctxSwitch');
+  btn.textContent = '上下文 ' + (ctxOn ? 'ON' : 'OFF');
+  btn.className = 'toolbar-btn' + (ctxOn ? ' active' : '');
+}
+
+function logDraft() {
+  draftCount = (draftCount + 1) % 5;
+  document.getElementById('draftCount').textContent = draftCount;
+  var area = document.getElementById('draftArea');
+  area.innerHTML = '';
+  for (var i = 0; i < draftCount; i++) {
+    var div = document.createElement('div');
+    div.className = 'draft-img';
+    div.style.background = 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(34,211,238,0.2))';
+    div.title = '草稿图片 ' + (i + 1);
+    area.appendChild(div);
+  }
+}
+
+function sendMsg() {
+  var input = document.getElementById('demoInput');
+  var text = input.value.trim();
+  var el = document.getElementById('actionLog');
+  if (!text) {
+    el.innerHTML = '<span class="key">提示</span> → <span class="val">请输入消息内容</span>';
+    return;
+  }
+  el.innerHTML = '<span class="key">发送</span> → <span class="val">instance.sendMessage()</span>\n' +
+    '<span class="key">内容</span> → <span class="val">' + text + '</span>\n' +
+    '<span class="key">图片</span> → <span class="val">' + draftCount + ' 张</span>\n' +
+    '<span class="key">流程</span> → <span class="val">_ensureCurrentSession → _beginMessageRequest → 渲染用户消息 → 流式回复 → _persistChatMessages → _endMessageRequest</span>';
+  input.value = '';
+  input.style.height = '60px';
+  draftCount = 0;
+  document.getElementById('draftCount').textContent = '0';
+  document.getElementById('draftArea').innerHTML = '';
+}
+
+document.getElementById('demoInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMsg();
+  }
+});
+
+document.getElementById('demoInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.max(60, this.scrollHeight) + 'px';
+});
+</script>
+</body>
+</html>

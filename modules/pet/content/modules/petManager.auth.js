@@ -2,7 +2,7 @@
  * PetManager - 认证相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -104,8 +104,9 @@
 
       store.token = this.getApiToken() || ''
       store.invalid = false
-      store.models = (PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models)) ? PET_CONFIG.chatModels.models : []
-      store.model = this.currentModel || ((PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3')
+      store.models =
+        PET_CONFIG.chatModels && Array.isArray(PET_CONFIG.chatModels.models) ? PET_CONFIG.chatModels.models : []
+      store.model = this.currentModel || (PET_CONFIG.chatModels && PET_CONFIG.chatModels.default) || 'qwen3'
       modal._resolve = resolve
     })
   }
@@ -134,9 +135,10 @@
     modal.id = 'token-settings-modal'
     modal.className = 'token-settings-modal'
     try {
-      const zIndex = (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal)
-        ? PET_CONFIG.ui.zIndex.modal
-        : 2147483649
+      const zIndex =
+        typeof PET_CONFIG !== 'undefined' && PET_CONFIG.ui && PET_CONFIG.ui.zIndex && PET_CONFIG.ui.zIndex.modal
+          ? PET_CONFIG.ui.zIndex.modal
+          : 2147483649
       modal.style.zIndex = String(zIndex)
     } catch (_) {}
 
@@ -153,7 +155,7 @@
       token: '',
       invalid: false,
       model: '',
-      models: []
+      models: [],
     })
 
     modal._store = store
@@ -223,7 +225,7 @@
       // 如果用户设置了 token，等待一小段时间确保保存完成
       if (result) {
         // 等待保存完成（chrome.storage 是异步的）
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
     }
 

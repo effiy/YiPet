@@ -2,14 +2,18 @@
  * Session Filter Module
  * 会话过滤和搜索模块
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
   }
 
   const proto = window.PetManager.prototype
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
+  // eslint-disable-next-line no-unused-vars -- normalizeNameSpaces available for other session modules via IIFE scope
+  const normalizeNameSpaces = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
 
   proto._getSessionsFromLocal = function () {
     if (!this.sessions) {
@@ -63,7 +67,7 @@
 
     const q = (this.sessionTitleFilter || '').trim().toLowerCase()
     if (q) {
-      filteredNonFavorite = filteredNonFavorite.filter(session => {
+      filteredNonFavorite = filteredNonFavorite.filter((session) => {
         const title = session.title || ''
         const preview = session.preview || session.pageDescription || ''
         const url = session.url || ''
@@ -74,11 +78,13 @@
     }
 
     if (this.tagFilterNoTags || (this.selectedFilterTags && this.selectedFilterTags.length > 0)) {
-      filteredNonFavorite = filteredNonFavorite.filter(session => {
+      filteredNonFavorite = filteredNonFavorite.filter((session) => {
         const sessionTags = Array.isArray(session.tags) ? session.tags.map((t) => String(t).trim()) : []
         const hasNoTags = sessionTags.length === 0 || !sessionTags.some((t) => t)
-        const hasSelectedTags = this.selectedFilterTags && this.selectedFilterTags.length > 0 &&
-                              this.selectedFilterTags.some((selectedTag) => sessionTags.includes(selectedTag))
+        const hasSelectedTags =
+          this.selectedFilterTags &&
+          this.selectedFilterTags.length > 0 &&
+          this.selectedFilterTags.some((selectedTag) => sessionTags.includes(selectedTag))
 
         if (this.tagFilterReverse && this.selectedFilterTags && this.selectedFilterTags.length > 0) {
           if (hasSelectedTags) return false
@@ -110,10 +116,13 @@
         const startDate = this.dateRangeFilter.startDate
         const endDate = this.dateRangeFilter.endDate
         const startTime = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime()
-        const endTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime() + 24 * 60 * 60 * 1000 - 1
+        const endTime =
+          new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime() + 24 * 60 * 60 * 1000 - 1
 
-        return sessions.filter(session => {
-          const sessionTime = getTimestamp(session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt)
+        return sessions.filter((session) => {
+          const sessionTime = getTimestamp(
+            session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt,
+          )
           if (!sessionTime || sessionTime <= 0) return false
           return sessionTime >= startTime && sessionTime <= endTime
         })
@@ -122,8 +131,10 @@
         const startTime = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime()
         const endTime = startTime + 24 * 60 * 60 * 1000 - 1
 
-        return sessions.filter(session => {
-          const sessionTime = getTimestamp(session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt)
+        return sessions.filter((session) => {
+          const sessionTime = getTimestamp(
+            session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt,
+          )
           if (!sessionTime || sessionTime <= 0) return false
           return sessionTime >= startTime && sessionTime <= endTime
         })
@@ -131,8 +142,10 @@
         const endDate = this.dateRangeFilter.endDate
         const endTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime()
 
-        return sessions.filter(session => {
-          const sessionTime = getTimestamp(session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt)
+        return sessions.filter((session) => {
+          const sessionTime = getTimestamp(
+            session.updatedAt || session.lastAccessTime || session.lastActiveAt || session.createdAt,
+          )
           if (!sessionTime || sessionTime <= 0) return false
           return sessionTime < endTime
         })
@@ -152,14 +165,21 @@
 
     let sessionTitle = session.title || '未命名会话'
 
-    if (session._isBlankSession ||
-        (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://')))) {
-      if (!session.title || session.title === '新会话' || session.title === '未命名会话' || session.title === '新会话.md') {
+    if (
+      session._isBlankSession ||
+      (session.url && (session.url.startsWith('blank-session://') || session.url.startsWith('aicr-session://')))
+    ) {
+      if (
+        !session.title ||
+        session.title === '新会话' ||
+        session.title === '未命名会话' ||
+        session.title === '新会话.md'
+      ) {
         if (session.messages && session.messages.length > 0) {
-          const firstUserMessage = session.messages.find(m => m.type === 'user')
+          const firstUserMessage = session.messages.find((m) => m.type === 'user')
           if (firstUserMessage && firstUserMessage.content) {
             const content = firstUserMessage.content.trim()
-            const preview = content.length > 30 ? content.substring(0, 30) + '...' : content
+            const preview = content.length > 30 ? `${content.substring(0, 30)}...` : content
             sessionTitle = preview
           } else {
             const createDate = new Date(session.createdAt || Date.now())

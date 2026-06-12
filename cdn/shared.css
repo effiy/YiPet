@@ -1,0 +1,98 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   YrY Shared CSS — 所有故事面板 HTML 页面的公共样式
+   适用: 架构图 · 知识图谱 · 审查 · 测试面板 · 演示 · 计划清单 · plan
+
+   使用方式:
+     <link rel="stylesheet" href="../../../../cdn/shared.css">
+     <link rel="stylesheet" href="../../../../cdn/theme.css">   ← 仅 Category B 页面
+
+   对应场景文档:
+     - docs/故事任务面板/yry-cdn/场景-1-cdn资源加载与页面渲染/
+     - docs/故事任务面板/yry-cdn/场景-2-双主题系统设计/
+     - docs/故事任务面板/yry-cdn/场景-4-存量页面迁移/
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+@keyframes yry-fadeInUp   { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes yry-fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes yry-slideDown  { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 3000px; } }
+@keyframes yry-pulse      { 0%,100% { box-shadow: 0 0 0 0 rgba(255,193,7,.4); } 50% { box-shadow: 0 0 0 6px rgba(255,193,7,0); } }
+@keyframes yry-modalIn    { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes yry-stepIn     { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+.yry-breadcrumb {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 1.25rem; font-size: 0.76rem;
+}
+.yry-breadcrumb a {
+  color: #7aa2f7; text-decoration: none; transition: color 0.15s;
+}
+.yry-breadcrumb a:hover { color: #fbbf24; text-decoration: underline; }
+.yry-breadcrumb .yry-bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.yry-breadcrumb .yry-bc-current { color: #94a3b8; font-weight: 500; }
+
+/* ── Cross-Nav ──────────────────────────────────────────────────────────── */
+.yry-cross-nav {
+  display: flex; gap: 4px; justify-content: center; align-items: center;
+  margin-bottom: 32px; flex-wrap: wrap;
+  animation: yry-fadeInDown .5s .15s ease both;
+}
+.yry-cross-link {
+  color: var(--yry-cyan, #22d3ee); text-decoration: none; font-size: .74rem;
+  padding: 3px 10px; border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.yry-cross-link:hover {
+  color: var(--yry-accent, #FFC107); background: rgba(255,193,7,.06);
+  text-decoration: underline;
+}
+.yry-cross-link.on { color: var(--yry-accent, #FFC107); font-weight: 600; }
+.yry-cross-sep { color: var(--yry-text3, #475569); font-size: .5rem; opacity: .35; user-select: none; }
+
+/* ── Toolbar (export buttons) ───────────────────────────────────────────── */
+.yry-toolbar { display: flex; gap: .5rem; align-items: center; }
+.yry-toolbar-toggle {
+  background: transparent; border: none; color: #475569; cursor: pointer;
+  font-size: 1.25rem; padding: .25rem .5rem; border-radius: .375rem;
+}
+.yry-toolbar-toggle:hover { color: #94a3b8; background: rgba(30,41,59,.5); }
+.yry-toolbar-actions { display: none; gap: .5rem; }
+.yry-toolbar.expanded .yry-toolbar-actions { display: flex; }
+.yry-toolbar-actions button {
+  background: rgba(30,41,59,.8); border: 1px solid #334155; color: #94a3b8;
+  padding: .375rem .75rem; border-radius: .375rem;
+  font-family: inherit; font-size: .75rem; cursor: pointer;
+  transition: all .2s; white-space: nowrap;
+}
+.yry-toolbar-actions button:hover {
+  background: rgba(51,65,85,.8); color: white; border-color: #475569;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+.yry-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(42,42,56,1); border: 1px solid rgba(255,193,7,.3);
+  border-radius: 8px; color: rgba(250,250,252,1); padding: 10px 20px;
+  font-size: .82rem; z-index: 300; box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+.yry-toast.show { opacity: 1; }
+
+/* ── Utility ────────────────────────────────────────────────────────────── */
+.yry-kbd-hint {
+  font-size: .64rem; color: var(--yry-text3, #6e7272);
+  background: rgba(255,255,255,.04); border-radius: 3px; padding: 1px 5px;
+}
+.yry-footer {
+  text-align: center; color: var(--yry-text3, #6e7272); font-size: .72rem;
+  margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06);
+}
+.yry-footer a { color: var(--yry-accent, #FFC107); text-decoration: none; }
+.yry-footer a:hover { text-decoration: underline; }
+
+@media print { .yry-toolbar { display: none !important; } }

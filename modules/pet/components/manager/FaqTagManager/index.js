@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) return
@@ -7,7 +7,7 @@
   const FAQ_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/FaqTagManager/index.html'
   let faqTagManagerTemplateCache = ''
 
-  function canUseVueTemplate (Vue) {
+  function canUseVueTemplate(Vue) {
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()
@@ -17,19 +17,19 @@
     }
   }
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (faqTagManagerTemplateCache) return faqTagManagerTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     faqTagManagerTemplateCache = await DomHelper.loadHtmlTemplate(
       FAQ_TAG_MANAGER_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-faq-tag-manager-template',
-      'Failed to load FaqTagManager template'
+      'Failed to load FaqTagManager template',
     )
     return faqTagManagerTemplateCache
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const store = params?.store
     const template = params?.template
@@ -46,7 +46,7 @@
 
     const componentOptions = {
       name: 'YiPetFaqTagManager',
-      setup () {
+      setup() {
         const tagInputEl = ref(null)
 
         const focusInput = () => {
@@ -78,8 +78,7 @@
           if (typeof manager?.saveFaqTags === 'function') await manager.saveFaqTags(store.faqIndex)
         }
 
-        const smartGenerate = async (e) => {
-          void e
+        const smartGenerate = async (_e) => {
           if (typeof manager?.generateFaqSmartTags === 'function') await manager.generateFaqSmartTags(store.faqIndex)
         }
 
@@ -104,7 +103,7 @@
             removeTag,
             save,
             smartGenerate,
-            onInputKeydown
+            onInputKeydown,
           }
         }
 
@@ -120,7 +119,7 @@
             'tw-items-center',
             'tw-justify-center',
             'tw-z-modal',
-            isVisible ? 'tw-flex' : 'tw-hidden'
+            isVisible ? 'tw-flex' : 'tw-hidden',
           ]
 
           const quickTagButtons = quickTags.map((tag) =>
@@ -132,13 +131,13 @@
                 class: [
                   'faq-tag-manager-quick-tag-btn',
                   'tw-chip',
-                  safeCurrentTags().includes(tag) ? 'is-selected' : ''
+                  safeCurrentTags().includes(tag) ? 'is-selected' : '',
                 ],
                 disabled: safeCurrentTags().includes(tag),
-                onClick: () => addQuickTag(tag)
+                onClick: () => addQuickTag(tag),
               },
-              tag
-            )
+              tag,
+            ),
           )
 
           const tagChips = safeCurrentTags().map((tag, idx) =>
@@ -150,11 +149,11 @@
                   type: 'button',
                   class: 'faq-tag-chip-remove',
                   title: '删除标签',
-                  onClick: () => removeTag(idx)
+                  onClick: () => removeTag(idx),
                 },
-                '✕'
-              )
-            ])
+                '✕',
+              ),
+            ]),
           )
 
           return h(
@@ -166,56 +165,87 @@
               'aria-label': '管理标签',
               onClick: (e) => {
                 if (e?.target === e?.currentTarget) close()
-              }
+              },
             },
             [
-              h('div', { class: ['tw-bg-white', 'tw-rounded-lg', 'tw-p-4', 'tw-w-full', 'tw-max-w-90', 'tw-max-h-80vh', 'tw-overflow-y-auto', 'tw-shadow'] }, [
-                h('div', { class: ['tw-flex', 'tw-justify-between', 'tw-items-center', 'tw-mb-2'] }, [
-                  h('h3', { class: ['tw-text-base', 'tw-font-semibold', 'tw-text-gray-700'] }, '管理标签'),
+              h(
+                'div',
+                {
+                  class: [
+                    'tw-bg-white',
+                    'tw-rounded-lg',
+                    'tw-p-4',
+                    'tw-w-full',
+                    'tw-max-w-90',
+                    'tw-max-h-80vh',
+                    'tw-overflow-y-auto',
+                    'tw-shadow',
+                  ],
+                },
+                [
+                  h('div', { class: ['tw-flex', 'tw-justify-between', 'tw-items-center', 'tw-mb-2'] }, [
+                    h('h3', { class: ['tw-text-base', 'tw-font-semibold', 'tw-text-gray-700'] }, '管理标签'),
+                    h(
+                      'button',
+                      { class: ['tw-btn', 'tw-btn-light', 'faq-tag-manager-close'], type: 'button', onClick: close },
+                      '✕',
+                    ),
+                  ]),
+                  h('div', { class: ['faq-tag-manager-input-group', 'tw-flex', 'tw-gap-2', 'tw-mb-2'] }, [
+                    h('input', {
+                      ref: tagInputEl,
+                      type: 'text',
+                      placeholder: '输入标签名称，按回车添加',
+                      class: ['faq-tag-manager-input', 'tw-input'],
+                      value: store.inputValue,
+                      onInput: (e) => {
+                        store.inputValue = e?.target?.value ?? ''
+                      },
+                      onKeydown: onInputKeydown,
+                    }),
+                    h(
+                      'button',
+                      { class: ['faq-tag-manager-add-btn', 'tw-btn'], type: 'button', onClick: addFromInput },
+                      '添加',
+                    ),
+                    h(
+                      'button',
+                      {
+                        class: ['faq-tag-manager-smart-generate', 'tw-btn'],
+                        type: 'button',
+                        onClick: (e) => smartGenerate(e),
+                      },
+                      '✨ 智能生成',
+                    ),
+                  ]),
                   h(
-                    'button',
-                    { class: ['tw-btn', 'tw-btn-light', 'faq-tag-manager-close'], type: 'button', onClick: close },
-                    '✕'
-                  )
-                ]),
-                h('div', { class: ['faq-tag-manager-input-group', 'tw-flex', 'tw-gap-2', 'tw-mb-2'] }, [
-                  h('input', {
-                    ref: tagInputEl,
-                    type: 'text',
-                    placeholder: '输入标签名称，按回车添加',
-                    class: ['faq-tag-manager-input', 'tw-input'],
-                    value: store.inputValue,
-                    onInput: (e) => {
-                      store.inputValue = e?.target?.value ?? ''
-                    },
-                    onKeydown: onInputKeydown
-                  }),
-                  h('button', { class: ['faq-tag-manager-add-btn', 'tw-btn'], type: 'button', onClick: addFromInput }, '添加'),
+                    'div',
+                    { class: ['faq-tag-manager-quick-tags', 'tw-flex', 'tw-flex-wrap', 'tw-gap-2', 'tw-mb-2'] },
+                    quickTagButtons,
+                  ),
                   h(
-                    'button',
-                    {
-                      class: ['faq-tag-manager-smart-generate', 'tw-btn'],
-                      type: 'button',
-                      onClick: (e) => smartGenerate(e)
-                    },
-                    '✨ 智能生成'
-                  )
-                ]),
-                h('div', { class: ['faq-tag-manager-quick-tags', 'tw-flex', 'tw-flex-wrap', 'tw-gap-2', 'tw-mb-2'] }, quickTagButtons),
-                h('div', { class: ['faq-tag-manager-tags', 'tw-overflow-y-auto', 'faq-tag-manager-tags-box'] }, tagChips),
-                h('div', { class: ['tw-flex', 'tw-justify-end', 'tw-gap-2'] }, [
-                  h('button', { class: ['tw-btn', 'tw-btn-light'], type: 'button', onClick: close }, '取消'),
-                  h(
-                    'button',
-                    { class: ['faq-tag-manager-save', 'tw-btn', 'faq-tag-manager-save-btn'], type: 'button', onClick: save },
-                    '保存'
-                  )
-                ])
-              ])
-            ]
+                    'div',
+                    { class: ['faq-tag-manager-tags', 'tw-overflow-y-auto', 'faq-tag-manager-tags-box'] },
+                    tagChips,
+                  ),
+                  h('div', { class: ['tw-flex', 'tw-justify-end', 'tw-gap-2'] }, [
+                    h('button', { class: ['tw-btn', 'tw-btn-light'], type: 'button', onClick: close }, '取消'),
+                    h(
+                      'button',
+                      {
+                        class: ['faq-tag-manager-save', 'tw-btn', 'faq-tag-manager-save-btn'],
+                        type: 'button',
+                        onClick: save,
+                      },
+                      '保存',
+                    ),
+                  ]),
+                ],
+              ),
+            ],
           )
         }
-      }
+      },
     }
 
     if (useTemplate) {
@@ -227,6 +257,6 @@
 
   window.PetManager.Components.FaqTagManager = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

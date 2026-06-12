@@ -2,24 +2,31 @@
  * PetManager - Chat Window UI Logic
  * Extracted from petManager.core.js
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') return
   const proto = window.PetManager.prototype
-  const logger = (typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function')
-    ? window.LoggerUtils.getLogger('chat-ui')
-    : console
+  const logger =
+    typeof window !== 'undefined' && window.LoggerUtils && typeof window.LoggerUtils.getLogger === 'function'
+      ? window.LoggerUtils.getLogger('chat-ui')
+      : console
 
-  function clampNumber (value, min, max) {
+  function clampNumber(value, min, max) {
     const n = Number(value)
     if (!Number.isFinite(n)) return min
     return Math.min(Math.max(n, min), max)
   }
 
-  function getViewportSize () {
+  function getViewportSize() {
     const vv = window.visualViewport
-    const width = (vv && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : window.innerWidth) || document.documentElement?.clientWidth || 0
-    const height = (vv && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : window.innerHeight) || document.documentElement?.clientHeight || 0
+    const width =
+      (vv && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : window.innerWidth) ||
+      document.documentElement?.clientWidth ||
+      0
+    const height =
+      (vv && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : window.innerHeight) ||
+      document.documentElement?.clientHeight ||
+      0
     return { width, height }
   }
 
@@ -50,7 +57,13 @@
     let xCandidate = this.chatWindowState.x ?? maxX
     let yCandidate = this.chatWindowState.y ?? 0
 
-    if (lastVp && Number.isFinite(lastVp.width) && lastVp.width > 0 && Number.isFinite(lastVp.height) && lastVp.height > 0) {
+    if (
+      lastVp &&
+      Number.isFinite(lastVp.width) &&
+      lastVp.width > 0 &&
+      Number.isFinite(lastVp.height) &&
+      lastVp.height > 0
+    ) {
       const rightOffset = clampNumber(lastVp.width - (xCandidate + width), 0, lastVp.width)
       const bottomOffset = clampNumber(lastVp.height - (yCandidate + height), 0, lastVp.height)
       xCandidate = vw - width - rightOffset
@@ -105,7 +118,12 @@
     if (!this._chatWindowViewportHandler) {
       this._chatWindowViewportHandler = () => {
         try {
-          if (this.isChatOpen && this.chatWindowState && !this.chatWindowState.isDragging && !this.chatWindowState.isResizing) {
+          if (
+            this.isChatOpen &&
+            this.chatWindowState &&
+            !this.chatWindowState.isDragging &&
+            !this.chatWindowState.isResizing
+          ) {
             this.adjustChatWindowToViewport()
           }
         } catch (_) {}
@@ -198,7 +216,7 @@
         y: this.chatWindowState.y,
         width: this.chatWindowState.width,
         height: this.chatWindowState.height,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       // 保存到chrome.storage.local避免写入配额限制
@@ -266,7 +284,7 @@
       isDragging: false,
       isResizing: false,
       resizeType: 'bottom-right', // 默认缩放类型
-      isFullscreen: false // Force false on restore to ensure consistent start state
+      isFullscreen: false, // Force false on restore to ensure consistent start state
     }
 
     // Sync manager state
@@ -305,8 +323,14 @@
     const safeMinWidth = Math.min(minWidth, viewportWidth)
     const safeMinHeight = Math.min(minHeight, viewportHeight)
 
-    this.chatWindowState.width = Math.max(safeMinWidth, Math.min(Math.min(maxWidth, viewportWidth), this.chatWindowState.width))
-    this.chatWindowState.height = Math.max(safeMinHeight, Math.min(Math.min(maxHeight, viewportHeight), this.chatWindowState.height))
+    this.chatWindowState.width = Math.max(
+      safeMinWidth,
+      Math.min(Math.min(maxWidth, viewportWidth), this.chatWindowState.width),
+    )
+    this.chatWindowState.height = Math.max(
+      safeMinHeight,
+      Math.min(Math.min(maxHeight, viewportHeight), this.chatWindowState.height),
+    )
     this.chatWindowState.x = Math.max(0, Math.min(viewportWidth - this.chatWindowState.width, this.chatWindowState.x))
     this.chatWindowState.y = Math.max(0, Math.min(viewportHeight - this.chatWindowState.height, this.chatWindowState.y))
 
@@ -321,10 +345,10 @@
   }
 
   /**
-     * 为宠物消息添加重新生成按钮
-     * @param {HTMLElement} container - 按钮容器
-     * @param {HTMLElement} messageDiv - 宠物消息元素
-     */
+   * 为宠物消息添加重新生成按钮
+   * @param {HTMLElement} container - 按钮容器
+   * @param {HTMLElement} messageDiv - 宠物消息元素
+   */
   proto.addTryAgainButton = function (container, messageDiv) {
     if (this.chatUiComponent && typeof this.chatUiComponent.addTryAgainButton === 'function') {
       this.chatUiComponent.addTryAgainButton(container, messageDiv)

@@ -18,22 +18,30 @@
 
 class MessageHelper {
   /**
-     * 发送消息到content script（带重试机制）
-     * @param {number} tabId - 标签页ID
-     * @param {Object} message - 消息对象
-     * @param {Object} options - 选项 {maxRetries, initialDelay}
-     * @returns {Promise<Object|null>} 响应结果
-     */
-  static async sendToContentScript (tabId, message, options = {}) {
-    const maxRetries = options.maxRetries || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.RETRY ? PET_CONFIG.constants.RETRY.MAX_RETRIES : 3)
-    const initialDelay = options.initialDelay || (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.RETRY ? PET_CONFIG.constants.RETRY.INITIAL_DELAY : 500)
+   * 发送消息到content script（带重试机制）
+   * @param {number} tabId - 标签页ID
+   * @param {Object} message - 消息对象
+   * @param {Object} options - 选项 {maxRetries, initialDelay}
+   * @returns {Promise<Object|null>} 响应结果
+   */
+  static async sendToContentScript(tabId, message, options = {}) {
+    const maxRetries =
+      options.maxRetries ||
+      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.RETRY
+        ? PET_CONFIG.constants.RETRY.MAX_RETRIES
+        : 3)
+    const initialDelay =
+      options.initialDelay ||
+      (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.RETRY
+        ? PET_CONFIG.constants.RETRY.INITIAL_DELAY
+        : 500)
 
     for (let i = 0; i < maxRetries; i++) {
       try {
         const response = await chrome.runtime.sendMessage({
           action: 'forwardToContentScript',
           tabId,
-          message
+          message,
         })
 
         return response
@@ -44,18 +52,18 @@ class MessageHelper {
 
         // 指数退避
         const delay = initialDelay * (i + 1)
-        await new Promise(resolve => setTimeout(resolve, delay))
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
     return null
   }
 
   /**
-     * 发送消息到background script
-     * @param {Object} message - 消息对象
-     * @returns {Promise<Object|null>} 响应结果
-     */
-  static async sendToBackground (message) {
+   * 发送消息到background script
+   * @param {Object} message - 消息对象
+   * @returns {Promise<Object|null>} 响应结果
+   */
+  static async sendToBackground(message) {
     try {
       return await chrome.runtime.sendMessage(message)
     } catch (error) {
@@ -64,11 +72,11 @@ class MessageHelper {
   }
 
   /**
-     * 检查content script是否就绪
-     * @param {number} tabId - 标签页ID
-     * @returns {Promise<boolean>} 是否就绪
-     */
-  static async checkContentScriptReady (tabId) {
+   * 检查content script是否就绪
+   * @param {number} tabId - 标签页ID
+   * @returns {Promise<boolean>} 是否就绪
+   */
+  static async checkContentScriptReady(tabId) {
     try {
       const response = await this.sendToContentScript(tabId, { action: 'ping' })
       return response !== null

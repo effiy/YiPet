@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) return
@@ -7,19 +7,19 @@
   const SESSION_TAG_MANAGER_TEMPLATES_RESOURCE_PATH = 'modules/pet/components/manager/SessionTagManager/index.html'
   let sessionTagManagerTemplateCache = ''
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (sessionTagManagerTemplateCache) return sessionTagManagerTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     sessionTagManagerTemplateCache = await DomHelper.loadHtmlTemplate(
       SESSION_TAG_MANAGER_TEMPLATES_RESOURCE_PATH,
       '#yi-pet-session-tag-manager-template',
-      'Failed to load SessionTagManager template'
+      'Failed to load SessionTagManager template',
     )
     return sessionTagManagerTemplateCache
   }
 
-  function canUseVueTemplate (Vue) {
+  function canUseVueTemplate(Vue) {
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()
@@ -29,7 +29,7 @@
     }
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const store = params?.store
     const template = params?.template
@@ -44,7 +44,7 @@
 
     const componentOptions = {
       name: 'YiPetSessionTagManager',
-      setup () {
+      setup() {
         const tagInputEl = ref(null)
         const isComposing = ref(false)
 
@@ -71,7 +71,7 @@
             (v) => {
               if (v) focusInput()
             },
-            { immediate: true }
+            { immediate: true },
           )
         }
 
@@ -227,9 +227,9 @@
           onDragEnd,
           onDragOver,
           onDragLeave,
-          onDrop
+          onDrop,
         }
-      }
+      },
     }
 
     if (useTemplate) {
@@ -237,136 +237,144 @@
     } else {
       componentOptions.render = function () {
         const tags = Array.isArray(store.currentTags) ? store.currentTags : []
-        const allTags = Array.isArray(store.quickTags) ? store.quickTags : typeof manager?.getAllTags === 'function' ? manager.getAllTags() || [] : []
+        const allTags = Array.isArray(store.quickTags)
+          ? store.quickTags
+          : typeof manager?.getAllTags === 'function'
+            ? manager.getAllTags() || []
+            : []
         const id = String(store.sessionId || '').trim()
-        return h('div', { class: 'tag-manager-modal-container', role: 'dialog', 'aria-modal': 'true', 'aria-label': '管理标签' }, [
-          h('div', { class: 'tag-manager-header' }, [
-            h('div', { class: 'tag-manager-title' }, '🏷️ 管理标签'),
-            h(
-              'div',
-              {
-                class: 'tag-manager-close',
-                role: 'button',
-                tabindex: '0',
-                'aria-label': '关闭',
-                title: '关闭',
-                onClick: () => manager?.closeTagManager?.()
-              },
-              '✕'
-            )
-          ]),
-          h('div', { class: 'tag-manager-content' }, [
-            h('div', { class: 'tag-manager-input-group' }, [
-              h('input', {
-                ref: 'tagInputEl',
-                class: 'tag-manager-input',
-                type: 'text',
-                placeholder: '输入标签名称，按回车添加',
-                value: store.inputValue || '',
-                onInput: (e) => {
-                  store.inputValue = e?.target?.value ?? ''
-                },
-                onKeydown: (e) => {
-                  if (e?.isComposing) return
-                  if (e?.key !== 'Enter') return
-                  e?.preventDefault?.()
-                  if (!id) return
-                  manager?.addTagFromInput?.(id)
-                }
-              }),
+        return h(
+          'div',
+          { class: 'tag-manager-modal-container', role: 'dialog', 'aria-modal': 'true', 'aria-label': '管理标签' },
+          [
+            h('div', { class: 'tag-manager-header' }, [
+              h('div', { class: 'tag-manager-title' }, '🏷️ 管理标签'),
               h(
-                'button',
+                'div',
                 {
-                  class: 'tag-manager-add-btn',
-                  type: 'button',
-                  onClick: () => {
+                  class: 'tag-manager-close',
+                  role: 'button',
+                  tabindex: '0',
+                  'aria-label': '关闭',
+                  title: '关闭',
+                  onClick: () => manager?.closeTagManager?.(),
+                },
+                '✕',
+              ),
+            ]),
+            h('div', { class: 'tag-manager-content' }, [
+              h('div', { class: 'tag-manager-input-group' }, [
+                h('input', {
+                  ref: 'tagInputEl',
+                  class: 'tag-manager-input',
+                  type: 'text',
+                  placeholder: '输入标签名称，按回车添加',
+                  value: store.inputValue || '',
+                  onInput: (e) => {
+                    store.inputValue = e?.target?.value ?? ''
+                  },
+                  onKeydown: (e) => {
+                    if (e?.isComposing) return
+                    if (e?.key !== 'Enter') return
+                    e?.preventDefault?.()
                     if (!id) return
                     manager?.addTagFromInput?.(id)
-                  }
-                },
-                '添加'
-              )
-            ]),
-            h(
-              'div',
-              { class: 'tag-manager-quick-tags' },
-              (Array.isArray(allTags) ? allTags : []).length
-                ? (Array.isArray(allTags) ? allTags : []).map((t) =>
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        class: ['tag-manager-quick-tag-btn', tags.includes(t) ? 'added' : ''],
-                        disabled: tags.includes(t),
-                        onClick: () => {
-                          if (!id) return
-                          if (tags.includes(t)) return
-                          manager?.addQuickTag?.(id, t)
-                        }
-                      },
-                      String(t || '')
-                    )
-                  )
-                : [h('div', { class: 'tag-manager-empty-msg' }, '暂无可用标签')]
-            ),
-            h(
-              'div',
-              { class: 'tag-manager-tags', role: 'list', 'aria-label': '标签列表' },
-              tags.length
-                ? tags.map((t, idx) =>
-                  h(
-                    'div',
-                    {
-                      role: 'listitem',
-                      class: ['tag-manager-tag-item', `tag-color-${idx % 8}`],
-                      draggable: true
+                  },
+                }),
+                h(
+                  'button',
+                  {
+                    class: 'tag-manager-add-btn',
+                    type: 'button',
+                    onClick: () => {
+                      if (!id) return
+                      manager?.addTagFromInput?.(id)
                     },
-                    [
-                      h('span', null, String(t || '')),
+                  },
+                  '添加',
+                ),
+              ]),
+              h(
+                'div',
+                { class: 'tag-manager-quick-tags' },
+                (Array.isArray(allTags) ? allTags : []).length
+                  ? (Array.isArray(allTags) ? allTags : []).map((t) =>
                       h(
                         'button',
                         {
                           type: 'button',
-                          class: 'tag-remove-btn',
-                          title: '删除标签',
-                          'aria-label': '删除标签',
+                          class: ['tag-manager-quick-tag-btn', tags.includes(t) ? 'added' : ''],
+                          disabled: tags.includes(t),
                           onClick: () => {
                             if (!id) return
-                            manager?.removeTag?.(id, idx)
-                          }
+                            if (tags.includes(t)) return
+                            manager?.addQuickTag?.(id, t)
+                          },
                         },
-                        '✕'
-                      )
-                    ]
-                  )
-                )
-                : [h('div', { class: 'tag-manager-empty-msg' }, '暂无标签')]
-            ),
-            h('div', { class: 'tag-manager-footer' }, [
-              h(
-                'button',
-                {
-                  class: 'tag-manager-cancel-btn',
-                  type: 'button',
-                  onClick: () => manager?.closeTagManager?.()
-                },
-                '取消'
+                        String(t || ''),
+                      ),
+                    )
+                  : [h('div', { class: 'tag-manager-empty-msg' }, '暂无可用标签')],
               ),
               h(
-                'button',
-                {
-                  class: 'tag-manager-save',
-                  type: 'button',
-                  onClick: () => {
-                    if (!id) return
-                    manager?.saveTags?.(id)
-                  }
-                },
-                '保存'
-              )
-            ])
-          ])
-        ])
+                'div',
+                { class: 'tag-manager-tags', role: 'list', 'aria-label': '标签列表' },
+                tags.length
+                  ? tags.map((t, idx) =>
+                      h(
+                        'div',
+                        {
+                          role: 'listitem',
+                          class: ['tag-manager-tag-item', `tag-color-${idx % 8}`],
+                          draggable: true,
+                        },
+                        [
+                          h('span', null, String(t || '')),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              class: 'tag-remove-btn',
+                              title: '删除标签',
+                              'aria-label': '删除标签',
+                              onClick: () => {
+                                if (!id) return
+                                manager?.removeTag?.(id, idx)
+                              },
+                            },
+                            '✕',
+                          ),
+                        ],
+                      ),
+                    )
+                  : [h('div', { class: 'tag-manager-empty-msg' }, '暂无标签')],
+              ),
+              h('div', { class: 'tag-manager-footer' }, [
+                h(
+                  'button',
+                  {
+                    class: 'tag-manager-cancel-btn',
+                    type: 'button',
+                    onClick: () => manager?.closeTagManager?.(),
+                  },
+                  '取消',
+                ),
+                h(
+                  'button',
+                  {
+                    class: 'tag-manager-save',
+                    type: 'button',
+                    onClick: () => {
+                      if (!id) return
+                      manager?.saveTags?.(id)
+                    },
+                  },
+                  '保存',
+                ),
+              ]),
+            ]),
+          ],
+        )
       }
     }
 
@@ -375,6 +383,6 @@
 
   window.PetManager.Components.SessionTagManager = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

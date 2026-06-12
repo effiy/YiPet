@@ -1,0 +1,254 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   YrY Theme CSS — Category B 页面的设计令牌与组件样式
+   适用: 审查 · 测试面板 · 演示 · 计划清单 · plan · index
+
+   依赖: shared.css (需先加载)
+   使用方式:
+     <link rel="stylesheet" href="../../../../cdn/shared.css">
+     <link rel="stylesheet" href="../../../../cdn/theme.css">
+
+   对应场景文档:
+     - docs/故事任务面板/yry-cdn/场景-2-双主题系统设计/
+     - docs/故事任务面板/yry-cdn/场景-3-组件库与JS工具API/
+     - docs/故事任务面板/yry-cdn/场景-4-存量页面迁移/
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Surfaces */
+  --yry-bg:         rgba(22,22,32,1);
+  --yry-bg-card:    linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --yry-bg-flat:    rgba(34,34,46,1);
+  --yry-bg-raised:  rgba(42,42,56,1);
+
+  /* Brand */
+  --yry-accent: #FFC107;
+  --yry-cyan:   #22d3ee;
+
+  /* Semantic */
+  --yry-pass: #22c55e;
+  --yry-fail: #ef4444;
+  --yry-warn: #f59e0b;
+  --yry-info: #6b7280;
+  --yry-skip: #6b7280;
+
+  /* Text */
+  --yry-text:  rgba(250,250,252,1);
+  --yry-text2: rgba(160,160,164,1);
+  --yry-text3: rgba(110,110,114,1);
+
+  /* Elevation */
+  --yry-shadow:    0 4px 20px rgba(0,0,0,0.3);
+  --yry-shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --yry-radius: 12px;
+  --yry-border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ── Body ───────────────────────────────────────────────────────────────── */
+body {
+  background: var(--yry-bg);
+  color: var(--yry-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Container ──────────────────────────────────────────────────────────── */
+.yry-container {
+  max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px;
+}
+.yry-container-sm { max-width: 960px; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.yry-header {
+  text-align: center; margin-bottom: 28px;
+  animation: yry-fadeInDown .5s ease both;
+}
+.yry-header h1 { font-size: 1.8rem; font-weight: 700; }
+.yry-header h1 .yry-accent { color: var(--yry-accent); }
+.yry-header .yry-sub { color: var(--yry-text2); font-size: .9rem; margin-top: 4px; }
+
+/* ── Stats Grid ─────────────────────────────────────────────────────────── */
+.yry-stats {
+  display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;
+  flex-wrap: wrap; animation: yry-fadeInDown .5s .1s ease both;
+}
+.yry-stat {
+  background: var(--yry-bg-card); border: var(--yry-border);
+  border-radius: var(--yry-radius); padding: 16px 20px; text-align: center;
+  box-shadow: var(--yry-shadow); min-width: 80px;
+  transition: transform .15s, box-shadow .15s; cursor: pointer;
+}
+.yry-stat:hover { transform: translateY(-2px); box-shadow: var(--yry-shadow-lg); }
+.yry-stat .yry-stat-val { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.yry-stat .yry-stat-val.pass { color: var(--yry-pass); }
+.yry-stat .yry-stat-val.warn { color: var(--yry-warn); }
+.yry-stat .yry-stat-val.info { color: var(--yry-info); }
+.yry-stat .yry-stat-lbl {
+  font-size: .68rem; color: var(--yry-text3); margin-top: 2px;
+  letter-spacing: .5px;
+}
+
+/* ── Health Bar ─────────────────────────────────────────────────────────── */
+.yry-bar-wrap {
+  margin-bottom: 28px; animation: yry-fadeInDown .5s .12s ease both;
+}
+.yry-bar-outer {
+  height: 10px; border-radius: 5px; overflow: hidden; display: flex;
+  background: rgba(255,255,255,.04);
+}
+.yry-bar-outer .yry-seg { height: 100%; transition: width .5s ease; min-width: 3px; }
+.yry-bar-outer .yry-seg.strength  { background: var(--yry-pass); }
+.yry-bar-outer .yry-seg.gap       { background: var(--yry-fail); }
+.yry-bar-outer .yry-seg.suggestion{ background: var(--yry-warn); }
+.yry-bar-outer .yry-seg.neutral   { background: var(--yry-info); }
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+.yry-tabs {
+  display: flex; gap: 0; border-bottom: var(--yry-border); margin-bottom: 24px;
+  animation: yry-fadeInDown .5s .18s ease both;
+}
+.yry-tab {
+  padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--yry-text3);
+  border-bottom: 2px solid transparent; transition: all .15s;
+  user-select: none; position: relative;
+}
+.yry-tab:hover { color: var(--yry-text2); }
+.yry-tab.on { color: var(--yry-accent); border-bottom-color: var(--yry-accent); }
+.yry-tab .yry-tab-badge {
+  font-size: .6rem; background: var(--yry-fail); color: #fff;
+  border-radius: 8px; padding: 1px 6px; position: absolute; top: 4px; right: 0;
+}
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+.yry-panel { display: none; animation: yry-fadeInUp .4s ease both; padding-top: 28px; }
+.yry-panel.on { display: block; }
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.yry-card {
+  background: var(--yry-bg-card); border: var(--yry-border);
+  border-radius: var(--yry-radius); padding: 20px 22px; margin-bottom: 14px;
+  box-shadow: var(--yry-shadow);
+}
+.yry-card h2, .yry-card h3 { font-size: .92rem; font-weight: 600; }
+
+/* ── Suite (collapsible section) ────────────────────────────────────────── */
+.yry-suite {
+  background: var(--yry-bg-card); border: var(--yry-border);
+  border-radius: var(--yry-radius); margin-bottom: 8px;
+  box-shadow: var(--yry-shadow); overflow: hidden; transition: border-color .2s;
+}
+.yry-suite.open { border-color: rgba(255,255,255,.08); }
+.yry-suite-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+  cursor: pointer; user-select: none; transition: background .12s;
+}
+.yry-suite-head:hover { background: rgba(255,255,255,.02); }
+.yry-suite-head .yry-suite-arrow {
+  font-size: .6rem; color: var(--yry-text3); transition: transform .2s;
+  width: 12px; text-align: center;
+}
+.yry-suite.open .yry-suite-head .yry-suite-arrow { transform: rotate(90deg); }
+.yry-suite-head .yry-suite-name { flex: 1; font-weight: 600; font-size: .88rem; }
+.yry-suite-head .yry-suite-badge {
+  font-size: .68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+}
+.yry-suite-badge.pass { background: rgba(34,197,94,.12); color: var(--yry-pass); }
+.yry-suite-badge.warn { background: rgba(245,158,11,.12); color: var(--yry-warn); }
+.yry-suite-body {
+  display: none; border-top: var(--yry-border);
+  animation: yry-slideDown .25s ease; padding: 14px 18px;
+}
+.yry-suite.open .yry-suite-body { display: block; }
+
+/* ── Progress Bar ───────────────────────────────────────────────────────── */
+.yry-progress-wrap { margin-bottom: 20px; }
+.yry-progress-label {
+  display: flex; justify-content: space-between; font-size: .78rem;
+  margin-bottom: 6px; color: var(--yry-text2);
+}
+.yry-progress-bar {
+  width: 100%; height: 6px; background: var(--yry-bg-flat);
+  border-radius: 3px; overflow: hidden;
+}
+.yry-progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #3d59a1, var(--yry-accent));
+  transition: width .4s ease;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.yry-btn {
+  background: var(--yry-bg-flat); border: var(--yry-border); border-radius: 8px;
+  color: var(--yry-text2); padding: 7px 14px; cursor: pointer; font-size: .8rem;
+  transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
+  text-decoration: none; white-space: nowrap; font-family: inherit;
+}
+.yry-btn:hover {
+  border-color: rgba(255,255,255,.15); color: var(--yry-text);
+  transform: translateY(-1px); box-shadow: var(--yry-shadow);
+}
+.yry-btn.on {
+  background: rgba(255,193,7,.12); border-color: rgba(255,193,7,.4);
+  color: var(--yry-accent);
+}
+
+/* ── Section ────────────────────────────────────────────────────────────── */
+.yry-section { margin-bottom: 28px; animation: yry-fadeInUp .4s ease both; }
+.yry-section h2 {
+  font-size: 1.1rem; color: var(--yry-accent); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.yry-section h2 .yry-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--yry-accent);
+}
+
+/* ── Link Card (for Related pages tab) ──────────────────────────────────── */
+.yry-link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.yry-link-card {
+  background: var(--yry-bg-card); border: var(--yry-border);
+  border-radius: var(--yry-radius); padding: 16px; box-shadow: var(--yry-shadow);
+  text-decoration: none; color: inherit; display: block;
+  transition: transform .15s, border-color .15s;
+}
+.yry-link-card:hover { transform: translateY(-2px); border-color: rgba(255,193,7,.25); }
+.yry-link-card .yry-lc-icon { font-size: 1.2rem; margin-bottom: 6px; }
+.yry-link-card .yry-lc-name { font-weight: 700; font-size: .88rem; color: var(--yry-accent); }
+.yry-link-card .yry-lc-desc { font-size: .74rem; color: var(--yry-text2); margin-top: 4px; line-height: 1.5; }
+
+/* ── External link indicator ────────────────────────────────────────────── */
+a[target="_blank"]::after { content: " ↗"; font-size: .7em; opacity: .5; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .yry-container, .yry-container-sm { padding: 24px 12px 60px; }
+  .yry-header h1 { font-size: 1.4rem; }
+  .yry-stats { gap: 6px; }
+  .yry-stat { padding: 12px 14px; min-width: 60px; }
+  .yry-stat .yry-stat-val { font-size: 1.2rem; }
+}
+
+/* ── Card hover polish ──────────────────────────────────────────────────── */
+.yry-card {
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.yry-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.1);
+}
+
+.yry-suite {
+  transition: border-color .2s, box-shadow .2s;
+}
+.yry-suite:hover {
+  border-color: rgba(255,255,255,.08);
+}
+
+/* ── Staggered animation for link cards ─────────────────────────────────── */
+.yry-link-card {
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.yry-link-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,193,7,.25);
+  box-shadow: var(--yry-shadow-lg);
+}

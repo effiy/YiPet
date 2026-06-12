@@ -9,25 +9,25 @@
  * - 返回值使用 resolve，不抛异常，避免上层漏 catch 导致消息通道异常关闭
  */
 
-(function initTabMessaging (global) {
+;(function initTabMessaging(global) {
   const root = global || (typeof self !== 'undefined' ? self : globalThis)
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-  function isNoConnectionErrorMessage (message) {
+  function isNoConnectionErrorMessage(message) {
     if (!message || typeof message !== 'string') return false
     return (
       message.includes('Could not establish connection') ||
-            message.includes('The message port closed') ||
-            message.toLowerCase().includes('extension context invalidated')
+      message.includes('The message port closed') ||
+      message.toLowerCase().includes('extension context invalidated')
     )
   }
 
   /**
-     * 发送消息到指定 tab
-     * @returns {Promise<{ok: boolean, response?: any, error?: string}>}
-     */
-  function sendMessageToTab (tabId, message) {
+   * 发送消息到指定 tab
+   * @returns {Promise<{ok: boolean, response?: any, error?: string}>}
+   */
+  function sendMessageToTab(tabId, message) {
     return new Promise((resolve) => {
       try {
         chrome.tabs.sendMessage(tabId, message, (response) => {
@@ -45,19 +45,19 @@
   }
 
   /**
-     * 发送消息到 tab（必要时自动注入 content script 并重试一次）
-     * @param {number} tabId
-     * @param {any} message
-     * @param {Object} options
-     * @param {Function} options.injectContentScript - (tabId) => Promise<boolean>
-     * @param {number} options.retryDelayMs
-     * @returns {Promise<{ok: boolean, response?: any, error?: string, injected?: boolean}>}
-     */
-  async function sendMessageToTabWithAutoInject (tabId, message, options = {}) {
+   * 发送消息到 tab（必要时自动注入 content script 并重试一次）
+   * @param {number} tabId
+   * @param {any} message
+   * @param {Object} options
+   * @param {Function} options.injectContentScript - (tabId) => Promise<boolean>
+   * @param {number} options.retryDelayMs
+   * @returns {Promise<{ok: boolean, response?: any, error?: string, injected?: boolean}>}
+   */
+  async function sendMessageToTabWithAutoInject(tabId, message, options = {}) {
     const retryDelayMs =
-            typeof options.retryDelayMs === 'number'
-              ? options.retryDelayMs
-              : (root?.PET_CONFIG?.constants?.TIMING?.INJECT_PET_DELAY ?? 1000)
+      typeof options.retryDelayMs === 'number'
+        ? options.retryDelayMs
+        : (root?.PET_CONFIG?.constants?.TIMING?.INJECT_PET_DELAY ?? 1000)
 
     const first = await sendMessageToTab(tabId, message)
     if (first.ok) return first
@@ -90,6 +90,6 @@
   root.TabMessaging = {
     sendMessageToTab,
     sendMessageToTabWithAutoInject,
-    isNoConnectionErrorMessage
+    isNoConnectionErrorMessage,
   }
 })(typeof self !== 'undefined' ? self : undefined)

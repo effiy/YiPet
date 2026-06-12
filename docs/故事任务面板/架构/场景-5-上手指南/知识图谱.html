@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>上手指南 · 知识图谱</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme-mono.css">
+<style>body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}</style>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'JetBrains Mono',monospace;background:#020617;min-height:100vh;padding:2rem;color:white}
+.container{max-width:1400px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#22d3ee;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:.875rem;margin-left:1.75rem}
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#475569;cursor:pointer;font-size:1.25rem;padding:.25rem .5rem;border-radius:.375rem}
+.toolbar-toggle:hover{color:#94a3b8;background:rgba(30,41,59,.5)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+.toolbar-actions button{background:rgba(30,41,59,.8);border:1px solid #334155;color:#94a3b8;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.toolbar-actions button:hover{background:rgba(51,65,85,.8);color:white;border-color:#475569}
+.graph-container{background:rgba(15,23,42,.5);border-radius:1rem;border:1px solid #1e293b;padding:1rem;margin-bottom:1.5rem}
+#cy{width:100%;height:550px;border-radius:.5rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:rgba(15,23,42,.5);border-radius:.75rem;border:1px solid #1e293b;padding:1.25rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.scene{background:#8B5CF6}.card-dot.check{background:#EC4899}.card-dot.source{background:#3B82F6}.card-dot.domain{background:#22d3ee}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#94a3b8;font-size:.75rem}
+.card li{margin-bottom:.375rem}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:.75rem;padding:.75rem;background:rgba(15,23,42,.5);border-radius:.5rem;border:1px solid #1e293b;font-size:.75rem;color:#94a3b8}
+.legend-item{display:flex;align-items:center;gap:.375rem}
+.legend-dot{width:12px;height:12px;border-radius:50%;border:2px solid}
+.legend-dot.scene{background:rgba(139,92,246,.3);border-color:#8B5CF6}
+.legend-dot.check{background:rgba(236,72,153,.3);border-color:#EC4899}
+.legend-dot.source{background:rgba(59,130,246,.3);border-color:#3B82F6}
+.legend-dot.domain{background:rgba(34,211,238,.3);border-color:#22d3ee}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;font-size:0.76rem}
+.breadcrumb a{color:#7aa2f7;text-decoration:none}
+.breadcrumb a:hover{color:#fbbf24}
+.breadcrumb .bc-sep{color:#53576c;opacity:0.5;user-select:none}
+.breadcrumb .bc-current{color:#94a3b8;font-weight:500}
+.cross-nav{display:flex;gap:4px;justify-content:center;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;animation:fadeInDown .5s .15s ease both}
+.cross-link{color:#7aa2f7;text-decoration:none;font-size:0.76rem;padding:3px 10px;border-radius:4px}
+.cross-link:hover{color:#fbbf24;background:rgba(251,191,36,0.06)}
+.cross-link.on{color:#fbbf24;font-weight:600;cursor:default}
+.cross-sep{color:#475569;font-size:0.5rem;opacity:0.35;user-select:none}
+.footer{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+@media print{body{background:#020617;padding:1rem}.toolbar{display:none!important}}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-arch · yipet-arch — 项目技术架构故事</span><span class="bc-sep">/</span><span class="bc-current">场景 5 · 上手指南</span><span class="bc-sep">/</span><span class="bc-current">🔗 知识图谱</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><span class="cross-link on">🔗 图谱</span><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>🔗 新人上手与开发指南 · 知识图谱</h1>
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button onclick="copyAsImage(this)">📋 Copy</button>
+        <button onclick="downloadPNG(this)">🖼 PNG</button>
+        <button onclick="downloadPDF(this)">📄 PDF</button>
+      </div>
+      <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')">⋯</button>
+    </div>
+  </div>
+  <p class="subtitle">yipet-arch · 场景 5 · vv2.0.0</p>
+</div>
+
+<div class="legend">
+  <span style="color:#94a3b8;font-weight:600;">节点:</span>
+  <span class="legend-item"><span class="legend-dot scene"></span>场景</span>
+  <span class="legend-item"><span class="legend-dot check"></span>检查/功能</span>
+  <span class="legend-item"><span class="legend-dot source"></span>源文件</span>
+  <span class="legend-item"><span class="legend-dot domain"></span>概念域</span>
+  <span style="margin-left:1rem;color:#94a3b8;font-weight:600;">操作:</span>
+  <span style="color:#64748b;">🖱 拖拽 · 滚轮缩放 · 点击节点高亮邻域</span>
+</div>
+
+<div class="graph-container"><div id="cy"></div></div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot scene"></div><h3>场景</h3></div>
+    <ul><li><b>新人上手与开发指南</b> — 场景 5</li></ul>
+  </div>
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    NEWBIE[&quot;新开发者&lt;br/&gt;首次接触项目&quot;]:::risk --&gt; SETUP[&quot;§1 环境搭建&lt;br/&gt;clone → 加载扩展 → 验证注入&quot;]:::exec
+    SETUP --&gt; VERIFY{&quot;宠物出现在&lt;br/&gt;任意网页上?&quot;}
+    VERIFY --&gt;|&quot;✅ 是&quot;| EXPLORE[&quot;§2 阅读架构文档&lt;br/&gt;从场景-1 模块拓扑开始&quot;]:::exec
+    VERIFY --&gt;|&quot;❌ 否&quot;| DEBUG[&quot;§3 调试&lt;br/&gt;Service Worker DevTools → 错误日志&quot;]:::milestone
+    DEBUG --&gt; VERIFY
+    EXPLORE --&gt; FIRST[&quot;§4 完成首次修改&lt;br/&gt;按常见任务 SOP 执行&quot;]:::goal
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>环境搭建步骤</h3><table><thead><tr><th>#</th><th>操作</th><th>平台</th><th>验证命令</th><th>预期结果</th></tr></thead><tbody><tr><td>1</td><td>Clone 仓库</td><td>全部</td><td><code>git clone <repo-url> && cd YiPet</code></td><td>项目目录完整，含 manifest.json</td></tr><tr><td>2</td><td>加载扩展</td><td>全部</td><td>Chrome → <code>chrome://extensions</code> → 开启开发者模式 → 加载已解压的扩展 → 选择 YiPet 目录</td><td>扩展卡片出现，ID 可见</td></tr><tr><td>3</td><td>开启 Service Worker DevTools</td><td>全部</td><td>在扩展卡片点击 "Service Worker" 链接</td><td>SW DevTools 打开，Console 无报错</td></tr><tr><td>4</td><td>配置 API Token</td><td>全部</td><td>点击工具栏图标 → 设置 → 输入 Token → 保存</td><td>TokenSettingsModal 显示 "已保存"</td></tr><tr><td>5</td><td>验证宠物注入</td><td>全部</td><td>打开任意网页（如 <code>https://github.com</code>）→ 等待 3 秒</td><td>右下角出现宠物图标，可拖拽</td></tr></tbody></table><h3>三环境调试入口</h3><p><pre class="mermaid">flowchart TB
+    subgraph cs[&quot;Content Script 调试&quot;]
+        CS1[&quot;打开任意已注入网页&quot;]:::exec
+        CS2[&quot;F12 → Sources → Content Scripts&quot;]:::exec
+        CS3[&quot;找到 YiPet 扩展 → 展开文件&quot;]:::exec
+        CS4[&quot;在 petManager.core.js 设断点&quot;]:::exec
+        CS5[&quot;触发操作 → 断点命中&quot;]:::exec
+        CS1 --&gt; CS2 --&gt; CS3 --&gt; CS4 --&gt; CS5
+    end
+
+    subgraph sw[&quot;Service Worker 调试&quot;]
+        SW1[&quot;chrome://extensions → Service Worker 链接&quot;]:::exec
+        SW2[&quot;Sources → 找到 background/index.js&quot;]:::exec
+        SW3[&quot;在 MessageRouter.handle() 设断点&quot;]:::exec
+        SW4[&quot;从 Popup 触发 injectPet → 断点命中&quot;]:::exec
+    end
+
+    subgraph popup[&quot;Popup 调试&quot;]
+        PP1[&quot;右键工具栏图标 → 检查弹出内容&quot;]:::exec
+        PP2[&quot;独立 DevTools 窗口打开&quot;]:::exec
+        PP3[&quot;在 PopupController 方法中设断点&quot;]:::exec
+    end
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6</pre></p><h3>常见任务一: 修改宠物默认行为</h3><table><thead><tr><th>#</th><th>操作</th><th>涉及文件</th><th>验证方法</th></tr></thead><tbody><tr><td>1</td><td>修改宠物默认颜色</td><td><code>core/config.js</code> → <code>PET_CONFIG.defaults.color</code></td><td>刷新页面，宠物颜色变化</td></tr><tr><td>2</td><td>修改宠物默认大小</td><td><code>core/config.js</code> → <code>PET_CONFIG.defaults.size</code></td><td>刷新页面，宠物大小变化</td></tr><tr><td>3</td><td>修改宠物默认位置</td><td><code>core/bootstrap/bootstrap.js</code> → <code>getPetDefaultPosition()</code></td><td>刷新页面，宠物在新位置出现</td></tr><tr><td>4</td><td>修改自动启动行为</td><td><code>modules/extension/background/app/register.js</code> → <code>autoStart</code> 逻辑</td><td>新页面加载时，该行为触发</td></tr><tr><td>5</td><td>卸载并重新加载扩展</td><td><code>chrome://extensions</code> → 刷新按钮</td><td>修改生效，无 JS 报错</td></tr></tbody></table><h3>常见任务二: 新增 API 端点</h3><table><thead><tr><th>#</th><th>操作</th><th>涉及文件</th><th>验证方法</th></tr></thead><tbody><tr><td>1</td><td>在 ENDPOINTS 中注册新端点</td><td><code>core/config.js</code> → <code>ENDPOINTS</code> 对象</td><td><code>console.log(ENDPOINTS)</code> 含新条目</td></tr><tr><td>2</td><td>在对应 Service 中添加调用方法</td><td><code>core/api/services/SessionService.js</code> (或其他)</td><td>方法可调用，URL 正确拼接</td></tr><tr><td>3</td><td>在 PetManager 子模块中消费</td><td><code>modules/pet/content/session/petManager.session.crud.js</code> (或其他)</td><td>PetManager 实例可调用新方法</td></tr><tr><td>4</td><td>如需 UI，在 Vue 组件中绑定</td><td><code>modules/pet/components/chat/ChatWindow/index.js</code> (或其他)</td><td>UI 中触发新功能</td></tr><tr><td>5</td><td>端到端验证</td><td>DevTools Network 面板</td><td>新 API 请求发出，响应正确解析</td></tr></tbody></table><h3>常见任务三: 添加 Vue 组件</h3><table><thead><tr><th>#</th><th>操作</th><th>涉及文件</th><th>验证方法</th></tr></thead><tbody><tr><td>1</td><td>创建组件目录和 index.js</td><td><code>modules/pet/components/NewComponent/index.js</code></td><td>文件创建，IIFE 格式正确</td></tr><tr><td>2</td><td>在 manifest.json 中注册加载顺序</td><td><code>manifest.json</code> → <code>content_scripts[0].js</code>，放在 vue.global.js 之后</td><td>加载顺序正确</td></tr><tr><td>3</td><td>在 InjectionService 中更新文件列表</td><td><code>modules/extension/background/services/injectionService.js</code></td><td>CONTENT_SCRIPT_FILES 包含新文件</td></tr><tr><td>4</td><td>在 PetManager 中集成组件实例化</td><td><code>modules/pet/content/modules/petManager.*.js</code> (对应装配模块)</td><td>组件在 petManager 实例上可访问</td></tr><tr><td>5</td><td>卸载并重新加载扩展</td><td><code>chrome://extensions</code> → 刷新</td><td>新组件正常渲染，无 JS 报错</td></tr></tbody></table><h3>前置知识要求</h3><table><thead><tr><th>知识领域</th><th>要求水平</th><th>学习资源</th></tr></thead><tbody><tr><td>JavaScript ES6+</td><td>熟练</td><td>MDN 文档</td></tr><tr><td>Chrome Extension Manifest V3</td><td>了解</td><td>Chrome 官方文档</td></tr><tr><td>Vue 3 Options API</td><td>了解</td><td>Vue 3 官方指南</td></tr><tr><td>IIFE 模块模式</td><td>了解</td><td>场景-1 模块拓扑文档</td></tr><tr><td>Chrome DevTools</td><td>熟练</td><td>Google 官方教程</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>环境搭建步骤 5 步以内完成</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>三环境调试入口均有明确路径</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>3 类常见任务 SOP 每步可验证</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>平台差异有标注（macOS/Windows/Linux）</td><td style="text-align:center">✅</td></tr><tr><td>5</td><td>前置知识要求明确且可自学</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+(function(){
+  if(typeof cytoscape==='undefined'){document.getElementById('cy').innerHTML='<p style="color:#475569;text-align:center;padding:2rem;">Cytoscape.js 未加载</p>';return}
+  var kgPath='../../../../docs/故事任务面板/yipet-arch/知识图谱.json';
+  fetch(kgPath).then(function(r){return r.json()}).then(function(kg){
+    var elements=[];
+    var domains=(kg.nodes&&kg.nodes.domains)||[];
+    var scenes=(kg.nodes&&kg.nodes.scenes)||[];
+    var sources=(kg.nodes&&kg.nodes.sources)||[];
+    domains.forEach(function(d){elements.push({data:{id:d.id,label:d.name,type:'domain'}})});
+    scenes.forEach(function(s){elements.push({data:{id:s.id,label:s.name||s.id,type:'scene'}})});
+    sources.forEach(function(s){elements.push({data:{id:s.id,label:s.name||s.id,type:'source'}})});
+    var edges=kg.edges||[];
+    edges.forEach(function(e){elements.push({data:{source:e.source,target:e.target,label:e.type||''}})});
+    if(elements.length===0){elements.push({data:{id:'empty',label:'暂无图谱数据'}})}
+    window._cy=cytoscape({container:document.getElementById('cy'),style:[
+      {selector:'node',style:{label:'data(label)',color:'white','font-size':'10px','font-family':'JetBrains Mono,monospace','text-valign':'center','text-halign':'center','background-color':'#1e293b','border-width':'2px','border-color':'#475569'}},
+      {selector:'node[type="domain"]',style:{'background-color':'#1b1e2e','border-color':'#7aa2f7','border-width':'3px'}},
+      {selector:'node[type="scene"]',style:{'background-color':'#1a2a1a','border-color':'#34d399'}},
+      {selector:'node[type="source"]',style:{'background-color':'#21232f','border-color':'#565f89'}},
+      {selector:'edge',style:{'line-color':'#3d59a1','target-arrow-color':'#3d59a1','target-arrow-shape':'triangle','curve-style':'bezier',width:1.5}}
+    ],elements:elements,layout:{name:'cose',idealEdgeLength:100,nodeOverlap:20}});
+  }).catch(function(){
+    window._cy=cytoscape({container:document.getElementById('cy'),style:[{selector:'node',style:{label:'data(label)',color:'white','font-size':'10px','text-valign':'center','text-halign':'center','background-color':'#1e293b','border-width':'2px','border-color':'#475569'}}],elements:{nodes:[{data:{id:'err',label:'图谱加载失败'}}],edges:[]},layout:{name:'grid'}});
+  });
+  var btns=document.querySelectorAll('.toolbar-actions button');
+  if(btns[0])btns[0].onclick=function(){var c=window._cy;if(c)navigator.clipboard.writeText(JSON.stringify(c.json()))};
+  if(btns[1])btns[1].onclick=function(){if(typeof html2canvas==='undefined')return;html2canvas(document.getElementById('cy'),{backgroundColor:'#020617'}).then(function(c){var a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='yipet-arch-scene5-kg.png';a.click()})};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>模块拓扑 · 计划清单</title>
+<link rel="stylesheet" href="../../../../cdn/shared.css">
+<link rel="stylesheet" href="../../../../cdn/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* Uses yry- prefixed CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --yry-bg: rgba(22,22,32,1);
+  --yry-bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --yry-bg-flat: rgba(34,34,46,1);
+  --yry-bg-raised: rgba(42,42,56,1);
+  --yry-accent: #FFC107;
+  --yry-cyan: #22d3ee;
+  --yry-pass: #22c55e;
+  --yry-fail: #ef4444;
+  --yry-warn: #f59e0b;
+  --yry-skip: #6b7280;
+  --yry-text: rgba(250,250,252,1);
+  --yry-text2: rgba(160,160,164,1);
+  --yry-text3: rgba(110,110,114,1);
+  --yry-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --yry-shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --yry-radius: 12px;
+  --yry-border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes yry-fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes yry-fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--yry-bg);
+  color: var(--yry-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.yry-container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.yry-header { text-align: center; margin-bottom: 24px; animation: yry-fadeInDown .5s ease both; }
+.yry-header h1 { font-size: 2.1rem; font-weight: 700; }
+.yry-header h1 .yry-accent { color: var(--yry-accent); }
+.yry-header .yry-sub { color: var(--yry-text2); font-size: .9rem; }
+
+.yry-stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: yry-fadeInDown .5s .1s ease both; }
+.yry-stat { background: var(--yry-bg-card); border: var(--yry-border); border-radius: var(--yry-radius); padding: 18px 22px; text-align: center; box-shadow: var(--yry-shadow); min-width: 90px; }
+.yry-stat .yry-val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.yry-stat .yry-val.t { color: var(--yry-text); }
+.yry-stat .yry-val.p { color: var(--yry-pass); }
+.yry-stat .yry-val.f { color: var(--yry-fail); }
+.yry-stat .yry-val.s { color: var(--yry-skip); }
+.yry-stat .yry-val.d { color: var(--yry-cyan); font-size: 1.25rem; }
+.yry-stat .yry-lbl { font-size: .72rem; color: var(--yry-text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.yry-bar-wrap { margin-bottom: 24px; }
+.yry-bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.yry-bar-outer .yry-seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.yry-bar-outer .yry-seg.p { background: var(--yry-pass); }
+.yry-bar-outer .yry-seg.f { background: var(--yry-fail); }
+.yry-bar-outer .yry-seg.s { background: var(--yry-skip); }
+
+.yry-breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.yry-breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.yry-breadcrumb a:hover { color: #fbbf24; }
+.yry-breadcrumb .yry-bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.yry-breadcrumb .yry-bc-current { color: #94a3b8; font-weight: 500; }
+
+.yry-cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: yry-fadeInDown .5s .15s ease both; }
+.yry-cross-nav .yry-cross-link { color: var(--yry-cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.yry-cross-nav .yry-cross-link:hover { color: var(--yry-accent); background: rgba(255,193,7,.06); }
+.yry-cross-nav .yry-cross-link.on { color: var(--yry-accent); font-weight: 600; }
+.yry-cross-nav .yry-cross-sep { color: var(--yry-text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.yry-tabs { display: flex; gap: 0; border-bottom: var(--yry-border); margin-bottom: 0; }
+.yry-tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--yry-text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.yry-tab:hover { color: var(--yry-text2); }
+.yry-tab.on { color: var(--yry-accent); border-bottom-color: var(--yry-accent); }
+
+.yry-panel { display: none; animation: yry-fadeInUp .4s ease both; padding-top: 28px; }
+.yry-panel.on { display: block; }
+
+.yry-card { background: var(--yry-bg-card); border: var(--yry-border); border-radius: var(--yry-radius); padding: 24px; box-shadow: var(--yry-shadow); margin-bottom: 20px; }
+
+.yry-suite { background: var(--yry-bg-card); border: var(--yry-border); border-radius: var(--yry-radius); overflow: hidden; margin-bottom: 20px; }
+.yry-suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--yry-accent); user-select: none; }
+.yry-suite .yry-suite-body { padding: 0 24px 18px; }
+
+.yry-btn { padding: 8px 16px; border-radius: 6px; border: var(--yry-border); background: var(--yry-bg-raised); color: var(--yry-text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.yry-btn:hover { background: var(--yry-accent); color: #000; border-color: var(--yry-accent); }
+
+.yry-footer { text-align: center; color: var(--yry-text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--yry-border); }
+</style>
+<link rel="stylesheet" href="../../../../cdn/yry-checklist.css">
+
+<style>
+.container { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">架构知识固化</span><span class="bc-sep">/</span><span class="bc-current">场景 1 · 模块地图与拓扑</span><span class="bc-sep">/</span><span class="bc-current">📋 计划清单</span></nav>
+<nav class="cross-nav"><span class="cross-link on">📋 清单</span><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><a class="cross-link" href="演示.html">💡 演示</a><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></nav>
+
+<div class="header">
+  <h1>📋 <span class="accent">模块地图与拓扑</span> · 计划清单</h1>
+  <p class="sub">逐步执行 → 勾选完成 → 下一项自动就绪 — <span style="color:var(--text3);font-size:0.7rem;background:rgba(255,255,255,0.03);border-radius:3px;padding:1px 5px;">1-5</span> 数字键切换 Tab</p>
+  <div class="meta">📌 vv2.0.0 · 📅 2026-06-06 · 🏷️ 模块拓扑</div>
+</div>
+
+<div class="stats-grid">
+        <div class="stat-card"><div class="val health">1</div><div class="lbl">📋 步骤</div></div>
+        <div class="stat-card"><div class="val health" id="ov-done">0</div><div class="lbl">✅ 完成</div></div>
+        <div class="stat-card"><div class="val" id="ov-pending">5</div><div class="lbl">⏳ 待执行</div></div>
+        <div class="stat-card"><div class="val" id="ov-progress">0%</div><div class="lbl">📊 进度</div></div>
+      </div>
+
+<div class="progress-wrap">
+  <div class="progress-label"><span>整体进度</span><span id="progress-text">0 / 5 完成</span></div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+</div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="checklist">📋 清单</span>
+  <span class="tab" data-panel="overview">📊 概览</span>
+  <span class="tab" data-panel="commands">⚡ 命令</span>
+  <span class="tab" data-panel="related">📁 关联</span>
+  <span class="tab" data-panel="verify">🧪 验证</span>
+</div>
+
+<!-- Tab 1: Checklist -->
+<div class="panel on" id="panelChecklist">
+<div class="section">
+<h2><span class="dot"></span>§0 技术评审</h2>
+<div class="step">
+  <div class="step-header" onclick="this.nextElementSibling.classList.toggle('open')">
+    <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+    <span class="step-num">1</span>
+    <span class="step-title">任务</span>
+    <span class="step-status status-pending">⏳ 待开始</span>
+  </div>
+  <div class="step-body"><div class="placeholder">数据待填充 — 运行 /rui code 生成</div></div>
+</div>
+</div>
+<div class="section">
+<h2><span class="dot"></span>§1 测试设计</h2>
+<div class="step">
+  <div class="step-header" onclick="this.nextElementSibling.classList.toggle('open')">
+    <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+    <span class="step-num">2</span>
+    <span class="step-title">任务</span>
+    <span class="step-status status-pending">⏳ 待开始</span>
+  </div>
+  <div class="step-body"><div class="placeholder">数据待填充 — 运行 /rui code 生成</div></div>
+</div>
+</div>
+<div class="section">
+<h2><span class="dot"></span>§2 实施报告</h2>
+<div class="step">
+  <div class="step-header" onclick="this.nextElementSibling.classList.toggle('open')">
+    <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+    <span class="step-num">3</span>
+    <span class="step-title">任务</span>
+    <span class="step-status status-pending">⏳ 待开始</span>
+  </div>
+  <div class="step-body"><div class="placeholder">数据待填充 — 运行 /rui code 生成</div></div>
+</div>
+</div>
+<div class="section">
+<h2><span class="dot"></span>§3 测试报告</h2>
+<div class="step">
+  <div class="step-header" onclick="this.nextElementSibling.classList.toggle('open')">
+    <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+    <span class="step-num">4</span>
+    <span class="step-title">任务</span>
+    <span class="step-status status-pending">⏳ 待开始</span>
+  </div>
+  <div class="step-body"><div class="placeholder">数据待填充 — 运行 /rui code 生成</div></div>
+</div>
+</div>
+<div class="section">
+<h2><span class="dot"></span>§4 自改进</h2>
+<div class="step">
+  <div class="step-header" onclick="this.nextElementSibling.classList.toggle('open')">
+    <input type="checkbox" class="step-checkbox" onchange="updateProgress()">
+    <span class="step-num">5</span>
+    <span class="step-title">任务</span>
+    <span class="step-status status-pending">⏳ 待开始</span>
+  </div>
+  <div class="step-body"><div class="placeholder">数据待填充 — 运行 /rui code 生成</div></div>
+</div>
+</div>
+
+</div>
+
+<!-- Tab 2: Overview -->
+<div class="panel" id="panelOverview">
+<div class="stat-grid">
+  <div class="stat-mini"><div class="sv g" id="ov-done">0</div><div class="sl">已完成</div></div>
+  <div class="stat-mini"><div class="sv y" id="ov-ready">0</div><div class="sl">就绪</div></div>
+  <div class="stat-mini"><div class="sv" style="color:var(--text3)" id="ov-pending">5</div><div class="sl">待开始</div></div>
+  <div class="stat-mini"><div class="sv c">5</div><div class="sl">总步骤</div></div>
+</div>
+<div class="section"><h2><span class="dot"></span>各阶段完成度</h2>
+<div class="section-stat">
+      <span class="ss-label">§0 技术评审</span>
+      <div class="ss-bar-wrap"><div class="ss-bar" style="width:0%;background:var(--text3)"></div></div>
+      <span class="ss-pct">0/1</span>
+    </div>
+<div class="section-stat">
+      <span class="ss-label">§1 测试设计</span>
+      <div class="ss-bar-wrap"><div class="ss-bar" style="width:0%;background:var(--text3)"></div></div>
+      <span class="ss-pct">0/1</span>
+    </div>
+<div class="section-stat">
+      <span class="ss-label">§2 实施报告</span>
+      <div class="ss-bar-wrap"><div class="ss-bar" style="width:0%;background:var(--text3)"></div></div>
+      <span class="ss-pct">0/1</span>
+    </div>
+<div class="section-stat">
+      <span class="ss-label">§3 测试报告</span>
+      <div class="ss-bar-wrap"><div class="ss-bar" style="width:0%;background:var(--text3)"></div></div>
+      <span class="ss-pct">0/1</span>
+    </div>
+<div class="section-stat">
+      <span class="ss-label">§4 自改进</span>
+      <div class="ss-bar-wrap"><div class="ss-bar" style="width:0%;background:var(--text3)"></div></div>
+      <span class="ss-pct">0/1</span>
+    </div>
+</div>
+
+</div>
+
+<!-- Tab 3: Commands -->
+<div class="panel" id="panelCommands">
+<div class="section"><h2><span class="dot"></span>§0 技术评审</h2>
+<div class="cmd-grid">
+<div class="cmd-card">
+        <div class="c-stage">步骤 1</div>
+        <div class="c-name">任务</div>
+        <div class="c-desc">&lt;a id="sec0"&gt;&lt;/a&gt;</div>
+        
+      </div>
+</div></div>
+<div class="section"><h2><span class="dot"></span>§1 测试设计</h2>
+<div class="cmd-grid">
+<div class="cmd-card">
+        <div class="c-stage">步骤 2</div>
+        <div class="c-name">任务</div>
+        <div class="c-desc">&lt;a id="sec1"&gt;&lt;/a&gt;</div>
+        
+      </div>
+</div></div>
+<div class="section"><h2><span class="dot"></span>§2 实施报告</h2>
+<div class="cmd-grid">
+<div class="cmd-card">
+        <div class="c-stage">步骤 3</div>
+        <div class="c-name">任务</div>
+        <div class="c-desc">&lt;a id="sec2"&gt;&lt;/a&gt;</div>
+        
+      </div>
+</div></div>
+<div class="section"><h2><span class="dot"></span>§3 测试报告</h2>
+<div class="cmd-grid">
+<div class="cmd-card">
+        <div class="c-stage">步骤 4</div>
+        <div class="c-name">任务</div>
+        <div class="c-desc">&lt;a id="sec3"&gt;&lt;/a&gt;</div>
+        
+      </div>
+</div></div>
+<div class="section"><h2><span class="dot"></span>§4 自改进</h2>
+<div class="cmd-grid">
+<div class="cmd-card">
+        <div class="c-stage">步骤 5</div>
+        <div class="c-name">任务</div>
+        <div class="c-desc">&lt;a id="sec4"&gt;&lt;/a&gt;</div>
+        
+      </div>
+</div></div>
+
+</div>
+
+<!-- Tab 4: Related -->
+<div class="panel" id="panelRelated">
+<div class="link-grid">
+  <a href="架构图.html" class="link-card">
+    <div class="lc-icon">📐</div><div class="lc-name">架构图</div>
+    <div class="lc-desc">模块拓扑与依赖关系可视化</div>
+  </a>
+  <a href="知识图谱.html" class="link-card">
+    <div class="lc-icon">🔗</div><div class="lc-name">知识图谱</div>
+    <div class="lc-desc">交互式实体关系图</div>
+  </a>
+  <a href="测试面板.html" class="link-card">
+    <div class="lc-icon">🧪</div><div class="lc-name">测试面板</div>
+    <div class="lc-desc">测试执行结果与覆盖率</div>
+  </a>
+  <a href="演示.html" class="link-card">
+    <div class="lc-icon">💡</div><div class="lc-name">演示</div>
+    <div class="lc-desc">功能演示与使用示例</div>
+  </a>
+</div>
+
+</div>
+
+<!-- Tab 5: Verify -->
+<div class="panel" id="panelVerify">
+<div class="verify-list">
+</div>
+
+</div>
+
+<div class="footer">
+  <p>Generated with planner agent | scene: 模块地图与拓扑 | updated: 2026-06-06</p>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="../../../../cdn/shared.js"></script>
+<script>
+const SCENE_KEY = 'yipet-arch-s1-checklist';
+
+// Tab Switching
+document.querySelector('.tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  switchPanel(tab.dataset.panel);
+});
+
+function switchPanel(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.panel === name));
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('on', p.id === 'panel' + name.charAt(0).toUpperCase() + name.slice(1));
+  });
+  localStorage.setItem(SCENE_KEY + '-tab', name);
+}
+
+// Keyboard shortcuts (1-5)
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const m = {'1':'checklist','2':'overview','3':'commands','4':'related','5':'verify'};
+  if (m[e.key]) { e.preventDefault(); switchPanel(m[e.key]); }
+});
+
+// Progress tracking
+function updateProgress() {
+  const checks = document.querySelectorAll('.step-checkbox');
+  const done = Array.from(checks).filter(c => c.checked).length;
+  const total = checks.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const fill = document.getElementById('progress-fill');
+  const text = document.getElementById('progress-text');
+  if (fill) fill.style.width = pct + '%';
+  if (text) text.textContent = done + ' / ' + total + ' 完成';
+
+  checks.forEach(cb => {
+    const status = cb.closest('.step').querySelector('.step-status');
+    if (!status) return;
+    if (cb.checked) {
+      status.textContent = '✅ 完成';
+      status.className = 'step-status status-done';
+    } else {
+      const all = Array.from(checks);
+      const idx = all.indexOf(cb);
+      const prevDone = idx === 0 || all[idx - 1].checked;
+      status.textContent = prevDone ? '🔶 就绪' : '⏳ 待开始';
+      status.className = prevDone ? 'step-status status-active' : 'step-status status-pending';
+    }
+  });
+
+  // Update overview stats
+  const pending = total - done;
+  const ready = Array.from(checks).filter((c, i) => {
+    if (c.checked) return false;
+    const all = Array.from(checks);
+    return i === 0 || all[i - 1].checked;
+  }).length;
+  const ovDone = document.getElementById('ov-done');
+  const ovReady = document.getElementById('ov-ready');
+  const ovPending = document.getElementById('ov-pending');
+  const ovProgress = document.getElementById('ov-progress');
+  if (ovDone) ovDone.textContent = done;
+  if (ovReady) ovReady.textContent = ready;
+  if (ovPending) ovPending.textContent = pending - ready;
+  if (ovProgress) ovProgress.textContent = pct + '%';
+
+  // Persist
+  const state = {};
+  checks.forEach((cb, i) => { state['step-' + (i + 1)] = cb.checked; });
+  localStorage.setItem(SCENE_KEY, JSON.stringify(state));
+}
+
+// Copy command
+function copyCmd(btn, cmd) {
+  navigator.clipboard.writeText(cmd).then(() => {
+    btn.textContent = '✅'; btn.style.opacity = '1';
+    setTimeout(() => { btn.textContent = '📋'; btn.style.opacity = ''; }, 1500);
+  }).catch(() => toast('复制失败'));
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// Init
+(function() {
+  const saved = JSON.parse(localStorage.getItem(SCENE_KEY) || '{}');
+  document.querySelectorAll('.step-checkbox').forEach((cb, i) => {
+    if (saved['step-' + (i + 1)]) cb.checked = true;
+  });
+  updateProgress();
+  const activeTab = localStorage.getItem(SCENE_KEY + '-tab') || 'checklist';
+  switchPanel(activeTab);
+})();
+</script>
+</body>
+</html>

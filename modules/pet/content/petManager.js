@@ -9,13 +9,13 @@
  * 注意：
  * - 本文件依赖 `content/petManager.core.js` 已先加载（由 manifest/注入顺序保证）
  */
-(function () {
+;(function () {
   'use strict'
 
   if (typeof window === 'undefined') return
 
   // 检查 core 是否已加载，如果未加载则尝试延迟检查
-  function checkPetManager () {
+  function checkPetManager() {
     if (typeof window.PetManager !== 'undefined') {
       return true
     }
@@ -38,13 +38,18 @@
 
       if (retryCount >= maxRetries) {
         clearInterval(retryCheck)
-        // eslint-disable-next-line no-console
+
         console.error(
           '[PetManager] 未检测到 window.PetManager：请确认 content/petManager.core.js 在本文件之前注入',
           '\n诊断信息：',
-          '\n- window 对象:', typeof window !== 'undefined' ? '存在' : '不存在',
-          '\n- PET_CONFIG:', typeof PET_CONFIG !== 'undefined' ? '已定义' : '未定义',
-          '\n- 已加载的脚本:', Array.from(document.scripts).map(s => s.src || s.textContent.substring(0, 50)).join(', ')
+          '\n- window 对象:',
+          typeof window !== 'undefined' ? '存在' : '不存在',
+          '\n- PET_CONFIG:',
+          typeof PET_CONFIG !== 'undefined' ? '已定义' : '未定义',
+          '\n- 已加载的脚本:',
+          Array.from(document.scripts)
+            .map((s) => s.src || s.textContent.substring(0, 50))
+            .join(', '),
         )
       }
     }, retryDelay)

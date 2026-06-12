@@ -6,17 +6,17 @@
 /**
  * 处理获取扩展信息请求
  */
-function handleGetExtensionInfo (sendResponse) {
+function handleGetExtensionInfo(sendResponse) {
   sendResponse({
     version: chrome.runtime.getManifest().version,
-    name: chrome.runtime.getManifest().name
+    name: chrome.runtime.getManifest().name,
   })
 }
 
 /**
  * 处理打开选项页面请求
  */
-function handleOpenOptionsPage (sendResponse) {
+function handleOpenOptionsPage(sendResponse) {
   chrome.runtime.openOptionsPage()
   sendResponse({ success: true })
 }
@@ -24,7 +24,7 @@ function handleOpenOptionsPage (sendResponse) {
 /**
  * 处理获取活动标签页请求
  */
-function handleGetActiveTab (sendResponse) {
+function handleGetActiveTab(sendResponse) {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     sendResponse({ tab: tabs[0] })
   })
@@ -35,14 +35,14 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     handleGetExtensionInfo,
     handleOpenOptionsPage,
-    handleGetActiveTab
+    handleGetActiveTab,
   }
 } else {
   if (typeof self !== 'undefined') {
     self.ExtensionHandler = {
       handleGetExtensionInfo,
       handleOpenOptionsPage,
-      handleGetActiveTab
+      handleGetActiveTab,
     }
   }
 }

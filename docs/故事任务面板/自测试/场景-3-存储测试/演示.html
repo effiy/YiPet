@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>存储测试 · 演示</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+@keyframes stepIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+body{line-height:1.6}
+.container{max-width:960px;padding:40px 24px 80px}
+.header h1{font-size:1.8rem}
+.header .sub{margin-top:4px}
+.stats{gap:12px;margin-bottom:20px}
+.stat{padding:16px 20px;min-width:80px}
+.stat .val{font-size:1.6rem}.stat .val.health{color:var(--pass)}.stat .val.warn-h{color:var(--warn)}
+.stat .lbl{font-size:.68rem;letter-spacing:.5px}
+.tabs{margin-bottom:24px}
+.tab{padding:8px 18px;font-size:.82rem}
+.panel{padding-top:0}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.walkthrough{counter-reset:step}
+.walkthrough .step{counter-increment:step;display:flex;gap:14px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.03);animation:stepIn .3s ease both}
+.walkthrough .step::before{content:counter(step);width:28px;height:28px;border-radius:50%;background:rgba(255,193,7,.12);color:var(--accent);font-size:.78rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.walkthrough .step .s-title{font-weight:600;font-size:.88rem}
+.walkthrough .step .s-desc{font-size:.76rem;color:var(--text2);margin:3px 0 6px}
+pre{background:rgba(0,0,0,.3);border-radius:6px;padding:10px 36px 10px 14px;font-size:.74rem;color:var(--cyan);overflow-x:auto;font-family:'SF Mono',monospace;position:relative;cursor:pointer;margin:6px 0}
+.mermaid-wrap{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);overflow-x:auto;margin-bottom:16px}
+.cmd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.cmd-card{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.cmd-card .name{font-weight:700;font-size:.88rem;color:var(--accent);font-family:monospace}
+.cmd-card .desc{font-size:.76rem;color:var(--text2);margin:4px 0 8px;line-height:1.5}
+.flow-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:16px 0}
+.flow-chip{background:var(--bg-flat);border:var(--border);border-radius:20px;padding:6px 14px;font-size:.78rem}
+.flow-chip .n{font-weight:700;color:var(--accent)}
+.flow-arrow{color:var(--text3);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 3 · 存储测试</span><span class="bc-sep">/</span><span class="bc-current">💡 演示</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><span class="cross-link on">💡 演示</span><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>💡 <span class="accent">数据持久化测试</span> — 演示</h1>
+  <p class="sub">场景 3 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">3</div><div class="lbl">流程图</div></div>
+        <div class="stat"><div class="val a">47</div><div class="lbl">数据表</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="walkthrough">🚶 演示</span>
+  <span class="tab" data-panel="overview">📊 概览</span>
+  <span class="tab" data-panel="commands">⚡ 命令</span>
+</div>
+
+<div class="panel on" id="panelWalkthrough">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;修改 StorageHelper 清理策略&quot;]:::risk --&gt; TEST[&quot;npx vitest run&lt;br/&gt;tests/unit/storage.test.mjs&quot;]:::exec
+    TEST --&gt; CHECK{&quot;配额超限清理&lt;br/&gt;是否正确?&quot;}
+    CHECK --&gt;|&quot;✅&quot;| CONF[&quot;提交变更&quot;]:::goal
+    CHECK --&gt;|&quot;❌&quot;| FIX[&quot;检查清理优先级&lt;br/&gt;和数据恢复&quot;]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>chrome.storage Mock 实现</h3><p><pre class="mermaid">flowchart TB
+    subgraph mock[&quot;chrome.storage.local mock (Map)&quot;]
+        GET[&quot;get(keys, callback)&lt;br/&gt;从 Map 读取 → callback(result)&quot;]:::exec
+        SET[&quot;set(items, callback)&lt;br/&gt;写入 Map → callback()&quot;]:::exec
+        REMOVE[&quot;remove(keys, callback)&lt;br/&gt;删除 Map entry → callback()&quot;]:::exec
+        CLEAR[&quot;clear(callback)&lt;br/&gt;清空 Map → callback()&quot;]:::exec
+        QUOTA[&quot;模拟配额超限&lt;br/&gt;Map.size &gt; QUOTA_BYTES&quot;]:::exec
+    end
+
+    subgraph guards[&quot;存储访问守卫&quot;]
+        G1[&quot;isChromeStorageAvailable()&lt;br/&gt;检查 chrome.runtime.id&quot;]:::review
+        G2[&quot;isQuotaError()&lt;br/&gt;检查 chrome.runtime.lastError&quot;]:::review
+        G3[&quot;isContextInvalidatedError()&lt;br/&gt;检查扩展上下文&quot;]:::review
+    end
+
+    mock --&gt; guards
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6</pre></p><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>关键方法</th><th>测试覆盖点</th></tr></thead><tbody><tr><td>core/utils/storage/storageUtils.js</td><td>loadFromChromeStorage, saveToChromeStorage</td><td>get/set 基础操作 · 错误回调 · 配额处理</td></tr><tr><td>core/bootstrap/bootstrap.js</td><td>StorageHelper.set/get, cleanupOldData</td><td>写入守卫 · 读取守卫 · LRU 清理 · 上下文失效</td></tr><tr><td>core/utils/session/sessionManager.js</td><td>SessionManager CRUD</td><td>create/read/update/delete · duplicate · search · queueSave</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>chrome.storage mock 覆盖 get/set/remove/clear 全部方法</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>配额超限模拟可触发 cleanupOldData 清理逻辑</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>上下文失效模拟可触发安全降级</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>SessionManager CRUD 操作有队列保存机制</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelOverview">
+  <p><b>角色</b>: 测试开发者 · <b>目标</b>: 验证 chrome.storage.local 的 CRUD 操作、配额超限清理、会话管理、上下文失效降级 · <b>优先级</b>: P0</p><p><b>图谱定位</b>: 领域层 → <code>domain:self-test-storage</code> · 结构层 → <code>flow:storage-crud-test</code> · <code>flow:quota-cleanup-test</code></p><p><a id="sec-value"></a>
+<h3>主要价值</h3>
+<ul><li>💾 <b>存储操作正确性</b> — CRUD 全覆盖，确保数据写入/读取/删除/清除语义正确</li>
+<li>🧹 <b>配额保护验证</b> — cleanupOldData 优先清理可重建数据，关键数据不丢失</li>
+<li>🔄 <b>会话管理完整</b> — SessionManager 的 CRUD + 去重 + 搜索 + 队列保存全链路</li>
+<li>🛡️ <b>守卫逻辑覆盖</b> — isChromeStorageAvailable / isContextInvalidated 预检行为验证</li></ul>
+  <div class="section">
+    <h2><span class="dot"></span>执行流程</h2>
+    <div class="mermaid-wrap"><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["修改 StorageHelper 清理策略"]:::risk --&gt; TEST["npx vitest run&lt;br/&gt;tests/unit/storage.test.mjs"]:::exec
+    TEST --&gt; CHECK{"配额超限清理&lt;br/&gt;是否正确?"}
+    CHECK --&gt;|"✅"| CONF["提交变更"]:::goal
+    CHECK --&gt;|"❌"| FIX["检查清理优先级&lt;br/&gt;和数据恢复"]:::milestone
+    FIX --&gt; TEST
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph mock["chrome.storage.local mock (Map)"]
+        GET["get(keys, callback)&lt;br/&gt;从 Map 读取 → callback(result)"]:::exec
+        SET["set(items, callback)&lt;br/&gt;写入 Map → callback()"]:::exec
+        REMOVE["remove(keys, callback)&lt;br/&gt;删除 Map entry → callback()"]:::exec
+        CLEAR["clear(callback)&lt;br/&gt;清空 Map → callback()"]:::exec
+        QUOTA["模拟配额超限&lt;br/&gt;Map.size &gt; QUOTA_BYTES"]:::exec
+    end
+
+    subgraph guards["存储访问守卫"]
+        G1["isChromeStorageAvailable()&lt;br/&gt;检查 chrome.runtime.id"]:::review
+        G2["isQuotaError()&lt;br/&gt;检查 chrome.runtime.lastError"]:::review
+        G3["isContextInvalidatedError()&lt;br/&gt;检查扩展上下文"]:::review
+    end
+
+    mock --&gt; guards
+
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef review fill:#1e1f2b,stroke:#7aa2f7,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart LR
+    CHROME["chrome-mock.mjs&lt;br/&gt;chrome.storage.local"] --&gt; UTILS["StorageUtils"]
+    UTILS --&gt; HELPER["StorageHelper"]
+    HELPER --&gt; SESSION["SessionManager"]
+    UTILS --&gt; ASSERT["vitest expect"]
+    HELPER --&gt; ASSERT
+    SESSION --&gt; ASSERT</pre></div>
+  </div>
+</div>
+
+<div class="panel" id="panelCommands">
+  <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>测试文件清单</h3><table><thead><tr><th>测试文件</th><th>覆盖模块</th><th>测试类型</th></tr></thead><tbody><tr><td><code>tests/unit/storage.test.mjs</code></td><td><code>core/utils/storage/storageUtils.js</code> · <code>core/bootstrap/bootstrap.js</code></td><td>单元测试 · CRUD · 配额清理 · SessionManager</td></tr><tr><td><code>tests/lib/chrome-mock.mjs</code></td><td>Chrome API mock</td><td>chrome.storage.local mock · 配额模拟</td></tr></tbody></table><h3>测试覆盖的存储功能</h3><table><thead><tr><th>功能</th><th>测试覆盖</th></tr></thead><tbody><tr><td>StorageUtils CRUD</td><td><code>storage.test.mjs</code> · set/get/remove/clear</td></tr><tr><td>存储配额检测</td><td><code>storage.test.mjs</code> · 配额超限触发清理</td></tr><tr><td>LRU 清理策略</td><td><code>storage.test.mjs</code> · petOssFiles 优先清理</td></tr><tr><td>SessionManager</td><td><code>storage.test.mjs</code> · 会话增删改查</td></tr><tr><td>位置持久化</td><td><code>storage.test.mjs</code> · getPetDefaultPosition · getChatWindowDefaultPosition</td></tr><tr><td>Extension context 失效</td><td><code>storage.test.mjs</code> · isContextInvalidated 检测</td></tr><tr><td>chrome.storage 可用性</td><td><code>storage.test.mjs</code> · isChromeStorageAvailable</td></tr></tbody></table><h3>存储测试依赖链</h3><p><pre class="mermaid">flowchart LR
+    CHROME[&quot;chrome-mock.mjs&lt;br/&gt;chrome.storage.local&quot;] --&gt; UTILS[&quot;StorageUtils&quot;]
+    UTILS --&gt; HELPER[&quot;StorageHelper&quot;]
+    HELPER --&gt; SESSION[&quot;SessionManager&quot;]
+    UTILS --&gt; ASSERT[&quot;vitest expect&quot;]
+    HELPER --&gt; ASSERT
+    SESSION --&gt; ASSERT</pre></p><p>---</p><p><a id="sec3"></a></p>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+document.querySelectorAll('pre').forEach(p => { p.addEventListener('click', function() {
+  var text = this.textContent || '';
+  navigator.clipboard.writeText(text.replace(/📋$/,'').trim()).then(() => {});
+})});
+</script>
+</body>
+</html>

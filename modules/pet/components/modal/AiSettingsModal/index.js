@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (!window.PetManager) return
@@ -7,7 +7,7 @@
   const TEMPLATE_RESOURCE_PATH = 'modules/pet/components/modal/AiSettingsModal/index.html'
   let templateCache = ''
 
-  function canUseVueTemplate (Vue) {
+  function canUseVueTemplate(Vue) {
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()
@@ -17,19 +17,19 @@
     }
   }
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (templateCache) return templateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     templateCache = await DomHelper.loadHtmlTemplate(
       TEMPLATE_RESOURCE_PATH,
       '#yi-pet-ai-settings-modal-template',
-      'Failed to load AiSettingsModal template'
+      'Failed to load AiSettingsModal template',
     )
     return templateCache
   }
 
-  function createComponent (params) {
+  function createComponent(params) {
     const manager = params?.manager
     const store = params?.store
     const template = params?.template
@@ -44,7 +44,7 @@
 
     const componentOptions = {
       name: 'YiPetAiSettingsModal',
-      setup () {
+      setup() {
         const openToken = () => {
           try {
             manager?.openAuth?.()
@@ -74,27 +74,24 @@
             h('div', { class: 'pet-ai-settings-title' }, '⚙️ AI 设置'),
             h('div', { class: 'pet-ai-settings-row' }, [
               h('label', { class: 'pet-ai-settings-label' }, '模型'),
-              h(
-                'input',
-                {
-                  type: 'text',
-                  class: 'pet-ai-settings-input',
-                  value: store.selectedModel || '',
-                  placeholder: '请输入模型名称',
-                  onInput: (evt) => {
-                    store.selectedModel = evt?.target?.value || ''
-                  }
-                }
-              )
+              h('input', {
+                type: 'text',
+                class: 'pet-ai-settings-input',
+                value: store.selectedModel || '',
+                placeholder: '请输入模型名称',
+                onInput: (evt) => {
+                  store.selectedModel = evt?.target?.value || ''
+                },
+              }),
             ]),
             h('div', { class: 'pet-ai-settings-buttons' }, [
               h('button', { type: 'button', class: 'pet-ai-settings-token-btn', onClick: openToken }, '设置 Token'),
               h('button', { type: 'button', class: 'pet-ai-settings-cancel-btn', onClick: cancel }, '取消'),
-              h('button', { type: 'button', class: 'pet-ai-settings-save-btn', onClick: save }, '保存')
-            ])
+              h('button', { type: 'button', class: 'pet-ai-settings-save-btn', onClick: save }, '保存'),
+            ]),
           ])
       },
-      template: resolvedTemplate
+      template: resolvedTemplate,
     }
 
     return defineComponent(componentOptions)
@@ -102,6 +99,6 @@
 
   window.PetManager.Components.AiSettingsModal = {
     loadTemplate,
-    createComponent
+    createComponent,
   }
 })()

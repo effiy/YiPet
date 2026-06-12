@@ -1,4 +1,4 @@
-(function () {
+;(function () {
   'use strict'
 
   if (typeof window.PetManager === 'undefined') {
@@ -21,7 +21,10 @@
     return s.toLowerCase().endsWith('.md') ? s.slice(0, -3) : s
   }
 
-  const normalizeNameSpaces = (value) => String(value ?? '').trim().replace(/\s+/g, '_')
+  const normalizeNameSpaces = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
 
   const extractChatReplyText = (result) => {
     if (!result || typeof result !== 'object') return ''
@@ -32,7 +35,7 @@
     return ''
   }
 
-  function canUseVueTemplate (Vue) {
+  function canUseVueTemplate(Vue) {
     if (typeof Vue?.compile !== 'function') return false
     try {
       Function('return 1')()
@@ -42,23 +45,26 @@
     }
   }
 
-  async function loadTemplate () {
+  async function loadTemplate() {
     if (sessionInfoEditorTemplateCache) return sessionInfoEditorTemplateCache
     const DomHelper = window.DomHelper
     if (!DomHelper || typeof DomHelper.loadHtmlTemplate !== 'function') return ''
     sessionInfoEditorTemplateCache = await DomHelper.loadHtmlTemplate(
       TEMPLATE_RESOURCE_PATH,
       '#yi-pet-session-info-editor-template',
-      'Failed to load SessionInfoEditor template'
+      'Failed to load SessionInfoEditor template',
     )
     return sessionInfoEditorTemplateCache
   }
 
-  function getSessionEditorOverlay (manager) {
-    return (manager?.chatWindow ? manager.chatWindow.querySelector('#pet-session-info-editor') : null) || document.body.querySelector('#pet-session-info-editor')
+  function getSessionEditorOverlay(manager) {
+    return (
+      (manager?.chatWindow ? manager.chatWindow.querySelector('#pet-session-info-editor') : null) ||
+      document.body.querySelector('#pet-session-info-editor')
+    )
   }
 
-  function getSessionEditorStore (manager) {
+  function getSessionEditorStore(manager) {
     return manager?._sessionInfoEditorStore || getSessionEditorOverlay(manager)?._store || null
   }
 
@@ -71,7 +77,9 @@
 
     const Vue = window.Vue || {}
     const { createApp, reactive, watch, defineComponent, ref, nextTick, h } = Vue
-    if (typeof createApp !== 'function' || typeof reactive !== 'function' || typeof defineComponent !== 'function') return
+    if (typeof createApp !== 'function' || typeof reactive !== 'function' || typeof defineComponent !== 'function') {
+      return
+    }
     const useTemplate = canUseVueTemplate(Vue)
     if (!useTemplate && typeof h !== 'function') return
 
@@ -91,7 +99,7 @@
       url: '',
       description: '',
       isSaving: false,
-      isGeneratingDescription: false
+      isGeneratingDescription: false,
     })
 
     overlay._store = store
@@ -103,7 +111,7 @@
         (v) => {
           overlay.classList.toggle('js-visible', !!v)
         },
-        { immediate: true }
+        { immediate: true },
       )
     }
 
@@ -114,13 +122,13 @@
     })
 
     overlay._mountPromise = (async () => {
-      const resolvedTemplate = useTemplate ? String(await loadTemplate() || '').trim() : ''
+      const resolvedTemplate = useTemplate ? String((await loadTemplate()) || '').trim() : ''
       if (useTemplate && !resolvedTemplate) return
 
       const manager = this
       const SessionInfoEditor = defineComponent({
         name: 'YiPetSessionInfoEditor',
-        setup () {
+        setup() {
           const modalEl = ref(null)
           const titleInputEl = ref(null)
 
@@ -137,7 +145,7 @@
                     if (typeof el.select === 'function') el.select()
                   } catch (_) {}
                 }
-              }
+              },
             )
           }
 
@@ -150,7 +158,7 @@
         ...(useTemplate
           ? { template: resolvedTemplate }
           : {
-              render () {
+              render() {
                 const onEsc = (e) => {
                   if (!e || e.key !== 'Escape') return
                   e.preventDefault?.()
@@ -164,7 +172,7 @@
                     class: 'aicr-session-context-modal-body aicr-session-settings-modal-body session-editor-modal',
                     role: 'document',
                     tabindex: 0,
-                    onKeydown: onEsc
+                    onKeydown: onEsc,
                   },
                   [
                     h('div', { class: 'aicr-session-context-modal-header session-editor-header' }, [
@@ -178,9 +186,9 @@
                             'aria-label': '保存',
                             title: '保存',
                             disabled: !!this.store.isSaving,
-                            onClick: this.save
+                            onClick: this.save,
                           },
-                          this.store.isSaving ? '保存中...' : '保存'
+                          this.store.isSaving ? '保存中...' : '保存',
                         ),
                         h(
                           'div',
@@ -189,11 +197,11 @@
                             role: 'button',
                             'aria-label': '关闭',
                             tabindex: 0,
-                            onClick: this.close
+                            onClick: this.close,
                           },
-                          '✕'
-                        )
-                      ])
+                          '✕',
+                        ),
+                      ]),
                     ]),
                     h('div', { class: 'aicr-session-context-modal-content aicr-session-settings-modal-content' }, [
                       h('div', { class: 'aicr-session-settings-field' }, [
@@ -210,8 +218,8 @@
                           value: this.store.title,
                           onInput: (e) => {
                             this.store.title = e?.target?.value ?? ''
-                          }
-                        })
+                          },
+                        }),
                       ]),
                       h('div', { class: 'aicr-session-settings-field' }, [
                         h('label', { class: 'aicr-session-settings-label', for: 'session-edit-url' }, '网址'),
@@ -226,9 +234,9 @@
                           value: this.store.url,
                           onInput: (e) => {
                             this.store.url = e?.target?.value ?? ''
-                          }
+                          },
                         }),
-                        h('div', { class: 'aicr-session-settings-hint' }, '网址将显示在欢迎卡片中')
+                        h('div', { class: 'aicr-session-settings-hint' }, '网址将显示在欢迎卡片中'),
                       ]),
                       h('div', { class: 'aicr-session-settings-field' }, [
                         h('div', { class: 'aicr-session-edit-description-header' }, [
@@ -241,10 +249,10 @@
                               'aria-label': 'AI生成描述',
                               title: '根据页面上下文内容AI智能生成描述',
                               disabled: !!this.store.isGeneratingDescription,
-                              onClick: this.generateDescription
+                              onClick: this.generateDescription,
                             },
-                            this.store.isGeneratingDescription ? '生成中...' : '✨ AI生成'
-                          )
+                            this.store.isGeneratingDescription ? '生成中...' : '✨ AI生成',
+                          ),
                         ]),
                         h('textarea', {
                           id: 'session-edit-description',
@@ -255,15 +263,15 @@
                           value: this.store.description,
                           onInput: (e) => {
                             this.store.description = e?.target?.value ?? ''
-                          }
+                          },
                         }),
-                        h('div', { class: 'aicr-session-settings-hint' }, '描述将帮助您更好地理解和管理会话内容')
-                      ])
-                    ])
-                  ]
+                        h('div', { class: 'aicr-session-settings-hint' }, '描述将帮助您更好地理解和管理会话内容'),
+                      ]),
+                    ]),
+                  ],
                 )
-              }
-            })
+              },
+            }),
       })
 
       overlay._vueApp = createApp(SessionInfoEditor)
@@ -340,14 +348,18 @@
           tags.forEach((folderName) => {
             const folder = normalizeFolders ? normalizeNameSpaces(folderName) : String(folderName ?? '').trim()
             if (!folder || folder.toLowerCase() === 'default') return
-            currentPath = currentPath ? currentPath + '/' + folder : folder
+            currentPath = currentPath ? `${currentPath}/${folder}` : folder
           })
 
-          const sanitizeFileName = (name) => String(name || '').replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-').trim()
+          const sanitizeFileName = (name) =>
+            String(name || '')
+              .replace(/\s+/g, '_')
+              .replace(/[\\/:*?"<>|]/g, '-')
+              .trim()
           let fileName = sanitizeFileName(title) || 'Untitled'
           fileName = String(fileName).replace(/\//g, '-')
 
-          let cleanPath = currentPath ? currentPath + '/' + fileName : fileName
+          let cleanPath = currentPath ? `${currentPath}/${fileName}` : fileName
           cleanPath = cleanPath.replace(/\\/g, '/').replace(/^\/+/, '')
           if (cleanPath.startsWith('static/')) {
             cleanPath = cleanPath.substring(7)
@@ -376,7 +388,10 @@
         const newPath = buildFilePath(tempSession, normalizedNewTitle, true)
 
         if (oldPath && newPath && oldPath !== newPath) {
-          const apiBase = window.API_URL && /^https?:\/\//i.test(window.API_URL) ? String(window.API_URL).replace(/\/+$/, '') : PET_CONFIG?.api?.yiaiBaseUrl || ''
+          const apiBase =
+            window.API_URL && /^https?:\/\//i.test(window.API_URL)
+              ? String(window.API_URL).replace(/\/+$/, '')
+              : PET_CONFIG?.api?.yiaiBaseUrl || ''
 
           if (apiBase) {
             try {
@@ -384,12 +399,12 @@
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                  ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
                 },
                 body: JSON.stringify({
                   old_path: oldPath,
-                  new_path: newPath
-                })
+                  new_path: newPath,
+                }),
               })
 
               if (!response.ok) {
@@ -448,17 +463,17 @@
                   url: session.url || '',
                   pageDescription: session.pageDescription || '',
                   updatedAt: session.updatedAt || Date.now(),
-                  lastAccessTime: session.lastAccessTime || Date.now()
-                }
-              }
+                  lastAccessTime: session.lastAccessTime || Date.now(),
+                },
+              },
             }
             const response = await fetch(`${base}/`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                ...(this.getAuthHeaders ? this.getAuthHeaders() : {})
+                ...(this.getAuthHeaders ? this.getAuthHeaders() : {}),
               },
-              body: JSON.stringify(payload)
+              body: JSON.stringify(payload),
             })
 
             if (response.ok) {
@@ -528,8 +543,8 @@
         parameters: {
           system: oldPayload.fromSystem,
           user: oldPayload.fromUser,
-          stream: false
-        }
+          stream: false,
+        },
       }
       if (oldPayload.images && Array.isArray(oldPayload.images) && oldPayload.images.length > 0) {
         payload.parameters.images = oldPayload.images
@@ -544,9 +559,9 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...this.getAuthHeaders()
+          ...this.getAuthHeaders(),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -572,7 +587,7 @@
       }
     } catch (e) {
       if (this.showNotification) {
-        this.showNotification('生成描述失败：' + (e?.message || '未知错误'), 'error')
+        this.showNotification(`生成描述失败：${e?.message || '未知错误'}`, 'error')
       }
     } finally {
       if (store) store.isGeneratingDescription = false

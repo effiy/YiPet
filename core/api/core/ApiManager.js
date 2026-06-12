@@ -3,9 +3,9 @@
  * 提供统一的请求处理、错误处理、重试机制等功能
  */
 
-(function (root) {
+;(function (root) {
   class ApiManager {
-    constructor (baseUrl, options = {}) {
+    constructor(baseUrl, options = {}) {
       this.baseUrl = baseUrl
       this.enabled = options.enabled !== false
 
@@ -13,7 +13,7 @@
       this.client = new RequestClient({
         timeout: options.timeout || 30000,
         baseUrl,
-        ...options.clientOptions
+        ...options.clientOptions,
       })
 
       // 错误处理器
@@ -30,7 +30,7 @@
         totalRequests: 0,
         successRequests: 0,
         errorRequests: 0,
-        retryRequests: 0
+        retryRequests: 0,
       }
 
       // 请求拦截器
@@ -45,14 +45,14 @@
     /**
      * 设置默认拦截器
      */
-    _setupDefaultInterceptors () {
+    _setupDefaultInterceptors() {
       // Token拦截器
       this.addRequestInterceptor(async (config) => {
         const token = await this.tokenManager.getToken()
         if (token) {
           config.headers = {
             ...config.headers,
-            'X-Token': token
+            'X-Token': token,
           }
         }
         return config
@@ -73,21 +73,21 @@
     /**
      * 添加请求拦截器
      */
-    addRequestInterceptor (interceptor) {
+    addRequestInterceptor(interceptor) {
       this.requestInterceptors.push(interceptor)
     }
 
     /**
      * 添加响应拦截器
      */
-    addResponseInterceptor (interceptor) {
+    addResponseInterceptor(interceptor) {
       this.responseInterceptors.push(interceptor)
     }
 
     /**
      * 执行请求拦截器链
      */
-    async _executeRequestInterceptors (config) {
+    async _executeRequestInterceptors(config) {
       let result = { ...config }
       for (const interceptor of this.requestInterceptors) {
         result = await interceptor(result)
@@ -98,7 +98,7 @@
     /**
      * 执行响应拦截器链
      */
-    async _executeResponseInterceptors (response) {
+    async _executeResponseInterceptors(response) {
       let result = response
       for (const interceptor of this.responseInterceptors) {
         result = await interceptor(result)
@@ -109,14 +109,14 @@
     /**
      * 检查是否启用
      */
-    isEnabled () {
+    isEnabled() {
       return this.enabled && !!this.baseUrl
     }
 
     /**
      * 发送请求
      */
-    async request (endpoint, options = {}) {
+    async request(endpoint, options = {}) {
       if (!this.isEnabled()) {
         throw new Error(`${this.constructor.name}未启用`)
       }
@@ -130,7 +130,7 @@
         // 执行请求拦截器
         const config = await this._executeRequestInterceptors({
           url,
-          ...options
+          ...options,
         })
 
         // 发送请求
@@ -149,7 +149,7 @@
         const handledError = await this.errorHandler.handle(error, {
           endpoint,
           options,
-          retryCount: 0
+          retryCount: 0,
         })
 
         throw handledError
@@ -159,50 +159,50 @@
     /**
      * GET请求
      */
-    async get (endpoint, params = {}, options = {}) {
+    async get(endpoint, params = {}, options = {}) {
       return this.request(endpoint, {
         method: 'GET',
         params,
-        ...options
+        ...options,
       })
     }
 
     /**
      * POST请求
      */
-    async post (endpoint, data = {}, options = {}) {
+    async post(endpoint, data = {}, options = {}) {
       return this.request(endpoint, {
         method: 'POST',
         data,
-        ...options
+        ...options,
       })
     }
 
     /**
      * PUT请求
      */
-    async put (endpoint, data = {}, options = {}) {
+    async put(endpoint, data = {}, options = {}) {
       return this.request(endpoint, {
         method: 'PUT',
         data,
-        ...options
+        ...options,
       })
     }
 
     /**
      * DELETE请求
      */
-    async delete (endpoint, options = {}) {
+    async delete(endpoint, options = {}) {
       return this.request(endpoint, {
         method: 'DELETE',
-        ...options
+        ...options,
       })
     }
 
     /**
      * 构建完整URL
      */
-    _buildUrl (endpoint, params = {}) {
+    _buildUrl(endpoint, params = {}) {
       const url = new URL(endpoint, this.baseUrl)
 
       if (params && Object.keys(params).length > 0) {
@@ -219,31 +219,30 @@
     /**
      * 获取统计信息
      */
-    getStats () {
+    getStats() {
       return {
         ...this.stats,
-        successRate: this.stats.totalRequests > 0
-          ? (this.stats.successRequests / this.stats.totalRequests * 100).toFixed(2)
-          : 0
+        successRate:
+          this.stats.totalRequests > 0 ? ((this.stats.successRequests / this.stats.totalRequests) * 100).toFixed(2) : 0,
       }
     }
 
     /**
      * 重置统计信息
      */
-    resetStats () {
+    resetStats() {
       this.stats = {
         totalRequests: 0,
         successRequests: 0,
         errorRequests: 0,
-        retryRequests: 0
+        retryRequests: 0,
       }
     }
 
     /**
      * 销毁管理器
      */
-    destroy () {
+    destroy() {
       this.client.destroy()
       this.requestInterceptors = []
       this.responseInterceptors = []
@@ -251,4 +250,4 @@
   }
 
   root.ApiManager = ApiManager
-})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : window))
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window)

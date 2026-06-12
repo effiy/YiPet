@@ -2,7 +2,7 @@
  * PetManager - 消息处理相关逻辑（从 `content/petManager.core.js` 拆分）
  * 说明：不使用 ESModule，通过给 `window.PetManager.prototype` 挂方法实现拆分。
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -26,7 +26,7 @@
     if (dataImageMatches) {
       images.push(...dataImageMatches)
       // 从文本中移除这些 data URL
-      dataImageMatches.forEach(url => {
+      dataImageMatches.forEach((url) => {
         cleanedText = cleanedText.replace(url, '')
       })
     }
@@ -35,7 +35,7 @@
     const imageUrlRegex = /https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s"'<>]*)?/gi
     const imageUrlMatches = text.match(imageUrlRegex)
     if (imageUrlMatches) {
-      imageUrlMatches.forEach(url => {
+      imageUrlMatches.forEach((url) => {
         if (!images.includes(url)) {
           images.push(url)
         }
@@ -50,7 +50,7 @@
     if (videoUrlMatches) {
       videos.push(...videoUrlMatches)
       // 从文本中移除这些 URL
-      videoUrlMatches.forEach(url => {
+      videoUrlMatches.forEach((url) => {
         cleanedText = cleanedText.replace(url, '')
       })
     }
@@ -61,7 +61,7 @@
     if (dataVideoMatches) {
       videos.push(...dataVideoMatches)
       // 从文本中移除这些 data URL
-      dataVideoMatches.forEach(url => {
+      dataVideoMatches.forEach((url) => {
         cleanedText = cleanedText.replace(url, '')
       })
     }
@@ -87,7 +87,7 @@
     const messageTimestamp = timestampAttr ? Number(timestampAttr) : NaN
     if (Number.isFinite(messageTimestamp) && messageTimestamp > 0) {
       const chatType = messageDiv.getAttribute('data-chat-type')
-      const messageType = chatType === 'pet' ? 'pet' : (chatType === 'user' ? 'user' : null)
+      const messageType = chatType === 'pet' ? 'pet' : chatType === 'user' ? 'user' : null
       for (let i = session.messages.length - 1; i >= 0; i--) {
         const msg = session.messages[i]
         if (!msg) continue
@@ -104,11 +104,13 @@
     }
 
     // 获取所有消息DOM元素（排除欢迎消息）
-    const allMessageDivs = Array.from(messagesContainer.children).filter(div => {
+    const allMessageDivs = Array.from(messagesContainer.children).filter((div) => {
       // 排除欢迎消息和其他非消息元素
-      return !div.hasAttribute('data-welcome-message') &&
-                   (div.querySelector('[data-message-type="user-bubble"]') ||
-                    div.querySelector('[data-message-type="pet-bubble"]'))
+      return (
+        !div.hasAttribute('data-welcome-message') &&
+        (div.querySelector('[data-message-type="user-bubble"]') ||
+          div.querySelector('[data-message-type="pet-bubble"]'))
+      )
     })
 
     // 找到当前消息在DOM中的索引

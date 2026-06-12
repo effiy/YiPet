@@ -1,0 +1,162 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   YrY Theme Mono CSS — JetBrains Mono 主题页面的样式
+   适用: 架构图 · 知识图谱 (深蓝黑底 + 等宽字体)
+
+   依赖: shared.css (需先加载) · fonts.css (JetBrains Mono self-hosted)
+   使用方式:
+     <link rel="stylesheet" href="../../../../cdn/fonts.css">
+     <link rel="stylesheet" href="../../../../cdn/shared.css">
+     <link rel="stylesheet" href="../../../../cdn/theme-mono.css">
+
+   对应场景文档:
+     - docs/故事任务面板/yry-cdn/场景-2-双主题系统设计/
+     - docs/故事任务面板/yry-cdn/场景-3-组件库与JS工具API/
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Body ───────────────────────────────────────────────────────────────── */
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: #020617;
+  min-height: 100vh;
+  padding: 2rem;
+  color: white;
+}
+
+/* ── Container ──────────────────────────────────────────────────────────── */
+.yry-mono-container {
+  max-width: 1200px; margin: 0 auto;
+}
+.yry-mono-container.wide { max-width: 1400px; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.yry-mono-header { margin-bottom: 1.5rem; }
+.yry-mono-header-row {
+  display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem;
+}
+.yry-mono-header h1 { font-size: 1.5rem; font-weight: 700; }
+.yry-mono-subtitle { color: #94a3b8; font-size: .875rem; margin-left: 1.75rem; }
+
+/* ── Pulse Dot ──────────────────────────────────────────────────────────── */
+.yry-pulse-dot {
+  width: 12px; height: 12px; background: #22d3ee; border-radius: 50%;
+  animation: yry-pulse-mono 2s infinite;
+  flex-shrink: 0;
+}
+@keyframes yry-pulse-mono { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+/* ── Diagram Container ──────────────────────────────────────────────────── */
+.yry-diagram-wrap {
+  background: rgba(15,23,42,.5); border-radius: 1rem;
+  border: 1px solid #1e293b; padding: 1.5rem;
+  overflow-x: auto; margin-bottom: 1.5rem;
+}
+.yry-diagram-wrap svg { width: 100%; min-width: 900px; display: block; }
+
+/* ── Graph Container (Cytoscape) ────────────────────────────────────────── */
+.yry-graph-wrap {
+  background: rgba(15,23,42,.5); border-radius: 1rem;
+  border: 1px solid #1e293b; padding: 1rem; margin-bottom: 1.5rem;
+}
+.yry-graph-wrap .yry-cy { width: 100%; height: 600px; border-radius: .5rem; }
+
+/* ── Cards (mono) ───────────────────────────────────────────────────────── */
+.yry-mono-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem; margin-bottom: 1.5rem;
+}
+.yry-mono-card {
+  background: rgba(15,23,42,.5); border-radius: .75rem;
+  border: 1px solid #1e293b; padding: 1.25rem;
+}
+.yry-mono-card-header {
+  display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem;
+}
+.yry-mono-card h3 { font-size: .875rem; font-weight: 600; }
+.yry-mono-card ul { list-style: none; color: #94a3b8; font-size: .75rem; }
+.yry-mono-card li { margin-bottom: .375rem; }
+
+/* ── Card Dots ──────────────────────────────────────────────────────────── */
+.yry-mono-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.yry-mono-dot.cyan    { background: #22d3ee; }
+.yry-mono-dot.emerald { background: #34d399; }
+.yry-mono-dot.violet  { background: #a78bfa; }
+.yry-mono-dot.amber   { background: #fbbf24; }
+.yry-mono-dot.rose    { background: #fb7185; }
+.yry-mono-dot.blue    { background: #3B82F6; }
+
+/* ── Legend ─────────────────────────────────────────────────────────────── */
+.yry-mono-legend {
+  display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: .75rem;
+  padding: .75rem; background: rgba(15,23,42,.5);
+  border-radius: .5rem; border: 1px solid #1e293b;
+  font-size: .75rem; color: #94a3b8;
+}
+.yry-mono-legend-item { display: flex; align-items: center; gap: .375rem; }
+
+/* ── Footer (mono) ──────────────────────────────────────────────────────── */
+.yry-mono-footer {
+  text-align: center; color: #475569; font-size: .75rem; margin-top: 1rem;
+}
+
+/* ── Breadcrumb (mono theme) ─────────────────────────────────────────── */
+.yry-mono-container .breadcrumb {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 1.25rem; font-size: 0.76rem;
+}
+.yry-mono-container .breadcrumb a {
+  color: #7aa2f7; text-decoration: none; transition: color 0.15s;
+}
+.yry-mono-container .breadcrumb a:hover { color: #fbbf24; text-decoration: underline; }
+.yry-mono-container .breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.yry-mono-container .breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+/* ── Cross-nav (mono theme) ──────────────────────────────────────────── */
+.yry-mono-container .cross-nav {
+  display: flex; gap: 4px; justify-content: center; align-items: center;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.yry-mono-container .cross-link { color: #7aa2f7; font-size: 0.76rem; text-decoration: none; padding: 3px 10px; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+.yry-mono-container .cross-link:hover { color: #fbbf24; background: rgba(251,191,36,0.06); }
+.yry-mono-container .cross-link.on { color: #fbbf24; font-weight: 600; cursor: default; }
+.yry-mono-container .cross-sep { color: #475569; font-size: 0.5rem; opacity: 0.35; user-select: none; }
+
+/* ── Cross-nav overrides (mono theme uses different link colors) ────────── */
+.yry-mono-container .yry-cross-link { color: #7aa2f7; font-size: 0.76rem; }
+.yry-mono-container .yry-cross-link:hover { color: #fbbf24; background: rgba(251,191,36,0.06); }
+.yry-mono-container .yry-cross-link.on { color: #fbbf24; cursor: default; }
+.yry-mono-container .yry-cross-sep { color: #475569; }
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+@keyframes yry-mono-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.yry-mono-card { animation: yry-mono-card-in .4s ease both; }
+.yry-mono-cards .yry-mono-card:nth-child(1) { animation-delay: .05s; }
+.yry-mono-cards .yry-mono-card:nth-child(2) { animation-delay: .12s; }
+.yry-mono-cards .yry-mono-card:nth-child(3) { animation-delay: .19s; }
+.yry-mono-cards .yry-mono-card:nth-child(4) { animation-delay: .26s; }
+
+/* ── Hover polish ──────────────────────────────────────────────────────── */
+.yry-mono-card {
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.yry-mono-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(148,163,184,.2);
+  box-shadow: 0 4px 24px rgba(0,0,0,.3);
+}
+
+.yry-diagram-wrap {
+  transition: border-color .2s, box-shadow .2s;
+}
+.yry-diagram-wrap:hover {
+  border-color: rgba(148,163,184,.15);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  body { padding: 1rem; }
+  .yry-mono-container { padding: 0; }
+  .yry-mono-cards { grid-template-columns: 1fr; }
+}

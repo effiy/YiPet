@@ -4,7 +4,7 @@
  */
 
 class ImageResourceManager {
-  constructor () {
+  constructor() {
     // 图片缓存：key 为图片路径，value 为 Image 对象或 data URL
     this.imageCache = new Map()
     // 加载中的 Promise：避免重复加载同一张图片
@@ -18,9 +18,9 @@ class ImageResourceManager {
   }
 
   /**
-     * 获取扩展资源 URL
-     */
-  getExtensionUrl (path) {
+   * 获取扩展资源 URL
+   */
+  getExtensionUrl(path) {
     try {
       if (typeof chrome === 'undefined' || !chrome.runtime) {
         this.extensionContextValid = false
@@ -50,12 +50,12 @@ class ImageResourceManager {
   }
 
   /**
-     * 加载单张图片（带缓存和去重）
-     * @param {string} imagePath - 图片路径（如 'src/assets/images/教师/run/1.png'）
-     * @param {number} retries - 重试次数
-     * @returns {Promise<Image>} 加载完成的 Image 对象
-     */
-  async loadImage (imagePath, retries = this.maxRetries) {
+   * 加载单张图片（带缓存和去重）
+   * @param {string} imagePath - 图片路径（如 'src/assets/images/教师/run/1.png'）
+   * @param {number} retries - 重试次数
+   * @returns {Promise<Image>} 加载完成的 Image 对象
+   */
+  async loadImage(imagePath, retries = this.maxRetries) {
     // 检查缓存
     if (this.imageCache.has(imagePath)) {
       const cached = this.imageCache.get(imagePath)
@@ -97,9 +97,9 @@ class ImageResourceManager {
   }
 
   /**
-     * 内部加载方法
-     */
-  _loadImageInternal (imagePath, maxRetries) {
+   * 内部加载方法
+   */
+  _loadImageInternal(imagePath, maxRetries) {
     return new Promise((resolve, reject) => {
       const imageUrl = this.getExtensionUrl(imagePath)
 
@@ -145,7 +145,7 @@ class ImageResourceManager {
           }
         }
 
-        img.onerror = (error) => {
+        img.onerror = (_error) => {
           clearTimeout(timeout)
           img.onload = null
           img.onerror = null
@@ -171,12 +171,12 @@ class ImageResourceManager {
   }
 
   /**
-     * 预加载角色运行动画的所有帧
-     * @param {string} role - 角色名称（如 '教师'）
-     * @param {number} frameCount - 帧数（默认 3）
-     * @returns {Promise<Image[]>} 所有帧的 Image 对象数组
-     */
-  async preloadRunFrames (role = '教师', frameCount = 3) {
+   * 预加载角色运行动画的所有帧
+   * @param {string} role - 角色名称（如 '教师'）
+   * @param {number} frameCount - 帧数（默认 3）
+   * @returns {Promise<Image[]>} 所有帧的 Image 对象数组
+   */
+  async preloadRunFrames(role = '教师', frameCount = 3) {
     const promises = []
     for (let frame = 1; frame <= frameCount; frame++) {
       const imagePath = `assets/images/${role}/run/${frame}.png`
@@ -186,29 +186,29 @@ class ImageResourceManager {
   }
 
   /**
-     * 获取角色图标
-     * @param {string} role - 角色名称
-     * @returns {Promise<Image>} 图标 Image 对象
-     */
-  async loadRoleIcon (role = '教师') {
+   * 获取角色图标
+   * @param {string} role - 角色名称
+   * @returns {Promise<Image>} 图标 Image 对象
+   */
+  async loadRoleIcon(role = '教师') {
     const imagePath = `assets/images/${role}/icon.png`
     return this.loadImage(imagePath)
   }
 
   /**
-     * 获取图片的 data URL（用于避免重复请求）
-     * @param {string} imagePath - 图片路径
-     * @returns {Promise<string>} data URL
-     */
-  async getImageDataUrl (imagePath) {
+   * 获取图片的 data URL（用于避免重复请求）
+   * @param {string} imagePath - 图片路径
+   * @returns {Promise<string>} data URL
+   */
+  async getImageDataUrl(imagePath) {
     const img = await this.loadImage(imagePath)
     return this._imageToDataUrl(img)
   }
 
   /**
-     * 将 Image 对象转换为 data URL
-     */
-  _imageToDataUrl (img) {
+   * 将 Image 对象转换为 data URL
+   */
+  _imageToDataUrl(img) {
     const canvas = document.createElement('canvas')
     canvas.width = img.naturalWidth
     canvas.height = img.naturalHeight
@@ -218,12 +218,12 @@ class ImageResourceManager {
   }
 
   /**
-     * 获取运行动画帧的 URL（优先使用 data URL 避免重复请求）
-     * @param {string} role - 角色名称
-     * @param {number} frame - 帧数（1-3）
-     * @returns {Promise<string>} 图片 URL 或 data URL
-     */
-  async getRunFrameUrl (role = '教师', frame = 1) {
+   * 获取运行动画帧的 URL（优先使用 data URL 避免重复请求）
+   * @param {string} role - 角色名称
+   * @param {number} frame - 帧数（1-3）
+   * @returns {Promise<string>} 图片 URL 或 data URL
+   */
+  async getRunFrameUrl(role = '教师', frame = 1) {
     const imagePath = `assets/images/${role}/run/${frame}.png`
 
     if (this.imageCache.has(imagePath)) {
@@ -238,18 +238,18 @@ class ImageResourceManager {
   }
 
   /**
-     * 清除缓存
-     */
-  clearCache () {
+   * 清除缓存
+   */
+  clearCache() {
     this.imageCache.clear()
     this.loadingPromises.clear()
     this.failedImages.clear()
   }
 
   /**
-     * 重置扩展上下文状态
-     */
-  resetExtensionContext () {
+   * 重置扩展上下文状态
+   */
+  resetExtensionContext() {
     this.extensionContextValid = true
     this.clearCache()
   }

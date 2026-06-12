@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>集成测试 · 演示</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+/* ═══ shared-b.css — Common styles for all Category B documents ═══ */
+/* Inlined by rui-html/lib/templates.mjs buildHeadBlock() during generation */
+/* CSS variables matching cdn/theme.css conventions */
+
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --bg-flat: rgba(34,34,46,1);
+  --bg-raised: rgba(42,42,56,1);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e;
+  --fail: #ef4444;
+  --warn: #f59e0b;
+  --skip: #6b7280;
+  --text: rgba(250,250,252,1);
+  --text2: rgba(160,160,164,1);
+  --text3: rgba(110,110,114,1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45);
+  --radius: 12px;
+  --border: 1px solid rgba(255,255,255,0.06);
+}
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 24px; animation: fadeInDown .5s ease both; }
+.header h1 { font-size: 2.1rem; font-weight: 700; }
+.header h1 .accent { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: .9rem; }
+
+.stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .1s ease both; }
+.stat { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); min-width: 90px; }
+.stat .val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.stat .val.t { color: var(--text); }
+.stat .val.p { color: var(--pass); }
+.stat .val.f { color: var(--fail); }
+.stat .val.s { color: var(--skip); }
+.stat .val.d { color: var(--cyan); font-size: 1.25rem; }
+.stat .lbl { font-size: .72rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+.bar-wrap { margin-bottom: 24px; }
+.bar-outer { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: rgba(255,255,255,.04); }
+.bar-outer .seg { height: 100%; transition: width .5s ease; min-width: 2px; }
+.bar-outer .seg.p { background: var(--pass); }
+.bar-outer .seg.f { background: var(--fail); }
+.bar-outer .seg.s { background: var(--skip); }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; font-size: 0.76rem; }
+.breadcrumb a { color: #7aa2f7; text-decoration: none; }
+.breadcrumb a:hover { color: #fbbf24; }
+.breadcrumb .bc-sep { color: #53576c; opacity: 0.5; user-select: none; }
+.breadcrumb .bc-current { color: #94a3b8; font-weight: 500; }
+
+.cross-nav { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 24px; flex-wrap: wrap; animation: fadeInDown .5s .15s ease both; }
+.cross-nav .cross-link { color: var(--cyan); text-decoration: none; font-size: .74rem; padding: 3px 10px; border-radius: 4px; }
+.cross-nav .cross-link:hover { color: var(--accent); background: rgba(255,193,7,.06); }
+.cross-nav .cross-link.on { color: var(--accent); font-weight: 600; }
+.cross-nav .cross-sep { color: var(--text3); font-size: .5rem; opacity: .35; user-select: none; }
+
+.tabs { display: flex; gap: 0; border-bottom: var(--border); margin-bottom: 0; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: .84rem; color: var(--text3); border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab:hover { color: var(--text2); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; animation: fadeInUp .4s ease both; padding-top: 28px; }
+.panel.on { display: block; }
+
+.card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+
+.suite { background: var(--bg-card); border: var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.suite summary { padding: 18px 24px; cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+.suite .suite-body { padding: 0 24px 18px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; border: var(--border); background: var(--bg-raised); color: var(--text2); cursor: pointer; font-size: .8rem; transition: all .15s; }
+.btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px; border-top: var(--border); }
+</style>
+
+<style>
+@keyframes stepIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+body{line-height:1.6}
+.container{max-width:960px;padding:40px 24px 80px}
+.header h1{font-size:1.8rem}
+.header .sub{margin-top:4px}
+.stats{gap:12px;margin-bottom:20px}
+.stat{padding:16px 20px;min-width:80px}
+.stat .val{font-size:1.6rem}.stat .val.health{color:var(--pass)}.stat .val.warn-h{color:var(--warn)}
+.stat .lbl{font-size:.68rem;letter-spacing:.5px}
+.tabs{margin-bottom:24px}
+.tab{padding:8px 18px;font-size:.82rem}
+.panel{padding-top:0}
+.section{margin-bottom:24px}
+.section h2{font-size:1.05rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.walkthrough{counter-reset:step}
+.walkthrough .step{counter-increment:step;display:flex;gap:14px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.03);animation:stepIn .3s ease both}
+.walkthrough .step::before{content:counter(step);width:28px;height:28px;border-radius:50%;background:rgba(255,193,7,.12);color:var(--accent);font-size:.78rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.walkthrough .step .s-title{font-weight:600;font-size:.88rem}
+.walkthrough .step .s-desc{font-size:.76rem;color:var(--text2);margin:3px 0 6px}
+pre{background:rgba(0,0,0,.3);border-radius:6px;padding:10px 36px 10px 14px;font-size:.74rem;color:var(--cyan);overflow-x:auto;font-family:'SF Mono',monospace;position:relative;cursor:pointer;margin:6px 0}
+.mermaid-wrap{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);overflow-x:auto;margin-bottom:16px}
+.cmd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.cmd-card{background:var(--bg-card);border:var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.cmd-card .name{font-weight:700;font-size:.88rem;color:var(--accent);font-family:monospace}
+.cmd-card .desc{font-size:.76rem;color:var(--text2);margin:4px 0 8px;line-height:1.5}
+.flow-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:16px 0}
+.flow-chip{background:var(--bg-flat);border:var(--border);border-radius:20px;padding:6px 14px;font-size:.78rem}
+.flow-chip .n{font-weight:700;color:var(--accent)}
+.flow-arrow{color:var(--text3);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="breadcrumb"><a href="../../../../docs/index.html">📄 文档中心</a><span class="bc-sep">/</span><span class="bc-current">yipet-self-test · yipet-self-test — 项目自主测试方案</span><span class="bc-sep">/</span><span class="bc-current">场景 5 · 集成测试</span><span class="bc-sep">/</span><span class="bc-current">💡 演示</span></nav>
+<div class="cross-nav"><a class="cross-link" href="计划清单.html">📋 清单</a><span class="cross-sep">·</span><a class="cross-link" href="架构图.html">📐 架构</a><span class="cross-sep">·</span><a class="cross-link" href="知识图谱.html">🔗 图谱</a><span class="cross-sep">·</span><a class="cross-link" href="源码.html">📄 源码</a><span class="cross-sep">·</span><a class="cross-link" href="测试面板.html">🧪 测试</a><span class="cross-sep">·</span><span class="cross-link on">💡 演示</span><span class="cross-sep">·</span><a class="cross-link" href="审查.html">📝 审查</a></div>
+
+<div class="header">
+  <h1>💡 <span class="accent">集成与回归测试</span> — 演示</h1>
+  <p class="sub">场景 5 · 版本 vv2.0.0 · 2026-06-06</p>
+</div>
+
+<div class="stats">
+        <div class="stat"><div class="val c">3</div><div class="lbl">流程图</div></div>
+        <div class="stat"><div class="val a">52</div><div class="lbl">数据表</div></div>
+        <div class="stat"><div class="val">vv2.0.0</div><div class="lbl">版本</div></div>
+      </div>
+
+<div class="tabs">
+  <span class="tab on" data-panel="walkthrough">🚶 演示</span>
+  <span class="tab" data-panel="overview">📊 概览</span>
+  <span class="tab" data-panel="commands">⚡ 命令</span>
+</div>
+
+<div class="panel on" id="panelWalkthrough">
+  <p><a id="sec0"></a>
+<h2>§0 技术评审</h2><h3>效果示意</h3><p><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV[&quot;修改 ApiManager 拦截器&quot;]:::risk --&gt; UNIT[&quot;单元测试通过&quot;]:::exec
+    UNIT --&gt; INT[&quot;npx vitest run&lt;br/&gt;tests/integration/&quot;]:::exec
+    INT --&gt; CHECK{&quot;集成链路&lt;br/&gt;是否通过?&quot;}
+    CHECK --&gt;|&quot;✅&quot;| CONF[&quot;无回归，提交变更&quot;]:::goal
+    CHECK --&gt;|&quot;❌&quot;| FIX[&quot;检查模块间契约&lt;br/&gt;修复破坏性变更&quot;]:::milestone
+    FIX --&gt; INT
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre></p><h3>集成测试架构</h3><p><pre class="mermaid">flowchart TB
+    subgraph pipeline[&quot;模块联调链路&quot;]
+        T[&quot;TokenManager&lt;br/&gt;获取 Token&quot;]:::core --&gt; A[&quot;ApiManager&lt;br/&gt;注入 X-Token 头&quot;]:::core
+        A --&gt; R[&quot;RequestClient&lt;br/&gt;发送 fetch 请求&quot;]:::core
+        R --&gt; M[&quot;mockFetch&lt;br/&gt;返回模拟响应&quot;]:::note
+        M --&gt; R2[&quot;响应拦截器&lt;br/&gt;解析 JSON&quot;]:::core
+    end
+
+    subgraph sw[&quot;Service Worker 路由&quot;]
+        MSG[&quot;chrome.runtime.sendMessage&lt;br/&gt;{ action, data }&quot;]:::exec --&gt; SW[&quot;MessageRouter.handle()&quot;]:::core
+        SW --&gt; H[&quot;具体 Handler&lt;br/&gt;处理并返回&quot;]:::core
+    end
+
+    subgraph vue[&quot;Vue 组件渲染&quot;]
+        VUE3[&quot;Vue 3 global mount&quot;]:::cross --&gt; CW[&quot;ChatWindow 组件&quot;]:::core
+        CW --&gt; DOM[&quot;jsdom DOM 验证&quot;]:::note
+    end
+
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6</pre></p><h3>被测模块覆盖</h3><table><thead><tr><th>源文件</th><th>关键行为</th><th>测试覆盖点</th></tr></thead><tbody><tr><td>core/api/services/SessionService.js</td><td>8 种 API 方法 · 批量操作 · 搜索</td><td>create/list/update/delete · 批量删除 · 搜索过滤</td></tr><tr><td>core/api/services/FaqService.js</td><td>8 种 API 方法 · 标签管理 · 搜索</td><td>create/list/update/delete · 标签增删 · 搜索过滤</td></tr><tr><td>modules/extension/background/index.js</td><td>MessageRouter 7 种 action</td><td>injectPet · toggleVisibility · forwardToContentScript · sendToWeWorkRobot · getExtensionInfo · getTabInfo · ping</td></tr><tr><td>modules/pet/components/chat/ChatWindow.js</td><td>Vue 组件挂载和消息渲染</td><td>createApp → mount → DOM 验证</td></tr></tbody></table><h3>设计评审清单</h3><table><thead><tr><th>#</th><th>检查项</th><th>状态</th></tr></thead><tbody><tr><td>1</td><td>模块联调链路覆盖 Token→ApiManager→RequestClient 全路径</td><td style="text-align:center">✅</td></tr><tr><td>2</td><td>MessageRouter 7 种 action 路由全部覆盖</td><td style="text-align:center">✅</td></tr><tr><td>3</td><td>Vue 组件在 jsdom 环境可挂载和渲染</td><td style="text-align:center">✅</td></tr><tr><td>4</td><td>集成测试使用独立的 mock 数据，不与单元测试冲突</td><td style="text-align:center">✅</td></tr></tbody></table><p>---</p>
+</div>
+
+<div class="panel" id="panelOverview">
+  <p><b>角色</b>: 测试开发者 · <b>目标</b>: 验证模块联调链路（Token→ApiManager→RequestClient）、Service Worker 消息路由、Vue 组件渲染的端到端行为 · <b>优先级</b>: P1</p><p><b>图谱定位</b>: 领域层 → <code>domain:self-test-integration</code> · 结构层 → <code>flow:module-pipeline</code> · <code>flow:sw-routing</code> · <code>flow:vue-render</code></p><p><a id="sec-value"></a>
+<h3>主要价值</h3>
+<ul><li>🔗 <b>模块契约验证</b> — Token→ApiManager→RequestClient 全链路通过，模块间调用契约未被破坏</li>
+<li>📡 <b>SW 路由正确</b> — 7 种 action 的路由注册和处理验证，未知 action 有错误返回</li>
+<li>🖼️ <b>Vue 组件基础渲染</b> — jsdom 环境下挂载 Vue 3 组件，验证组件可正常创建和渲染</li>
+<li>🚀 <b>快速回归</b> — 集成测试在 < 2s 内完成，适合每次 commit 前执行</li>
+<li>🔄 <b>mock 隔离可靠</b> — beforeEach 重置所有 mock，确保集成测试间无状态泄漏</li></ul>
+  <div class="section">
+    <h2><span class="dot"></span>执行流程</h2>
+    <div class="mermaid-wrap"><pre class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#1e1f2b',
+  'primaryTextColor': '#a9b1d6',
+  'primaryBorderColor': '#3d59a1',
+  'lineColor': '#3d59a1',
+  'secondaryColor': '#2b2d3b',
+  'tertiaryColor': '#21232f'
+}}}%%
+flowchart LR
+    DEV["修改 ApiManager 拦截器"]:::risk --&gt; UNIT["单元测试通过"]:::exec
+    UNIT --&gt; INT["npx vitest run&lt;br/&gt;tests/integration/"]:::exec
+    INT --&gt; CHECK{"集成链路&lt;br/&gt;是否通过?"}
+    CHECK --&gt;|"✅"| CONF["无回归，提交变更"]:::goal
+    CHECK --&gt;|"❌"| FIX["检查模块间契约&lt;br/&gt;修复破坏性变更"]:::milestone
+    FIX --&gt; INT
+
+    classDef risk fill:#2a1a1a,stroke:#f87171,color:#f87171
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef milestone fill:#2a2417,stroke:#fbbf24,color:#fbbf24
+    classDef goal fill:#1a2a1a,stroke:#34d399,color:#34d399</pre>
+<pre class="mermaid">flowchart TB
+    subgraph pipeline["模块联调链路"]
+        T["TokenManager&lt;br/&gt;获取 Token"]:::core --&gt; A["ApiManager&lt;br/&gt;注入 X-Token 头"]:::core
+        A --&gt; R["RequestClient&lt;br/&gt;发送 fetch 请求"]:::core
+        R --&gt; M["mockFetch&lt;br/&gt;返回模拟响应"]:::note
+        M --&gt; R2["响应拦截器&lt;br/&gt;解析 JSON"]:::core
+    end
+
+    subgraph sw["Service Worker 路由"]
+        MSG["chrome.runtime.sendMessage&lt;br/&gt;{ action, data }"]:::exec --&gt; SW["MessageRouter.handle()"]:::core
+        SW --&gt; H["具体 Handler&lt;br/&gt;处理并返回"]:::core
+    end
+
+    subgraph vue["Vue 组件渲染"]
+        VUE3["Vue 3 global mount"]:::cross --&gt; CW["ChatWindow 组件"]:::core
+        CW --&gt; DOM["jsdom DOM 验证"]:::note
+    end
+
+    classDef core fill:#1b1e2e,stroke:#7aa2f7,color:#7aa2f7
+    classDef note fill:#21232f,stroke:#3e4152,color:#53576c
+    classDef exec fill:#1e1f2b,stroke:#565f89,color:#a9b1d6
+    classDef cross fill:#21232f,stroke:#565f89,color:#a9b1d6</pre>
+<pre class="mermaid">flowchart TB
+    subgraph pipeline["API 管理器集成"]
+        CFG["config.js"] --&gt; LOG["logger.js"]
+        LOG --&gt; ERR["error.js"]
+        ERR --&gt; TOK["token.js"]
+        TOK --&gt; REQ["request.js"]
+        REQ --&gt; API["ApiManager.js"]
+        API --&gt; SESS["SessionService.js"]
+        API --&gt; FAQ["FaqService.js"]
+    end
+    subgraph sw["SW 消息路由"]
+        MR["messageRouter.js"] --&gt; REG["register.js"]
+        REG --&gt; PH["petHandler.js"]
+        REG --&gt; TH["tabHandler.js"]
+    end
+    subgraph vue["Vue 组件"]
+        CW["ChatWindow"] --&gt; CM["ChatMessages"]
+        CW --&gt; CI["ChatInput"]
+    end</pre></div>
+  </div>
+</div>
+
+<div class="panel" id="panelCommands">
+  <p><a id="sec2"></a>
+<h2>§2 实施报告</h2><h3>测试文件清单</h3><table><thead><tr><th>测试文件</th><th>覆盖模块</th><th>测试类型</th></tr></thead><tbody><tr><td><code>tests/integration/pipeline.test.mjs</code></td><td>ApiManager + SessionService + FaqService</td><td>集成测试 · 全链路 API 调用</td></tr><tr><td><code>tests/modules/extension/sw.test.mjs</code></td><td><code>modules/extension/background/messaging/messageRouter.js</code></td><td>集成测试 · SW 消息路由 TC26–TC33</td></tr><tr><td><code>tests/modules/pet/components/ChatWindow.test.mjs</code></td><td>ChatWindow · ChatInput · ChatMessages</td><td>组件测试 · Vue 渲染 TC34–TC39</td></tr><tr><td><code>tests/lib/chrome-mock.mjs</code></td><td>Chrome API mock</td><td>SW 测试基础设施</td></tr></tbody></table><h3>集成测试依赖链</h3><p><pre class="mermaid">flowchart TB
+    subgraph pipeline[&quot;API 管理器集成&quot;]
+        CFG[&quot;config.js&quot;] --&gt; LOG[&quot;logger.js&quot;]
+        LOG --&gt; ERR[&quot;error.js&quot;]
+        ERR --&gt; TOK[&quot;token.js&quot;]
+        TOK --&gt; REQ[&quot;request.js&quot;]
+        REQ --&gt; API[&quot;ApiManager.js&quot;]
+        API --&gt; SESS[&quot;SessionService.js&quot;]
+        API --&gt; FAQ[&quot;FaqService.js&quot;]
+    end
+    subgraph sw[&quot;SW 消息路由&quot;]
+        MR[&quot;messageRouter.js&quot;] --&gt; REG[&quot;register.js&quot;]
+        REG --&gt; PH[&quot;petHandler.js&quot;]
+        REG --&gt; TH[&quot;tabHandler.js&quot;]
+    end
+    subgraph vue[&quot;Vue 组件&quot;]
+        CW[&quot;ChatWindow&quot;] --&gt; CM[&quot;ChatMessages&quot;]
+        CW --&gt; CI[&quot;ChatInput&quot;]
+    end</pre></p><h3>测试覆盖的集成场景</h3><table><thead><tr><th>场景</th><th>测试文件</th><th>覆盖内容</th></tr></thead><tbody><tr><td>API 全链路</td><td><code>pipeline.test.mjs</code></td><td>config → token → request → ApiManager → SessionService/FaqService</td></tr><tr><td>SW getToken</td><td><code>sw.test.mjs</code> TC26</td><td>Content Script → SW → TokenManager</td></tr><tr><td>SW setToken</td><td><code>sw.test.mjs</code> TC27</td><td>Popup → SW → chrome.storage</td></tr><tr><td>SW getSessions</td><td><code>sw.test.mjs</code> TC28</td><td>Content Script → SW → SessionService</td></tr><tr><td>SW createSession</td><td><code>sw.test.mjs</code> TC29</td><td>会话创建 · 存储写入</td></tr><tr><td>SW getFaqs</td><td><code>sw.test.mjs</code> TC30</td><td>FAQ 查询 · 数据返回</td></tr><tr><td>SW updateFaq</td><td><code>sw.test.mjs</code> TC31</td><td>FAQ 更新 · 持久化</td></tr><tr><td>ChatWindow 挂载</td><td><code>ChatWindow.test.mjs</code> TC34</td><td>Vue 组件挂载 · 初始渲染</td></tr><tr><td>消息列表渲染</td><td><code>ChatWindow.test.mjs</code> TC35–TC36</td><td>空列表 · 消息渲染</td></tr><tr><td>ChatInput 绑定</td><td><code>ChatWindow.test.mjs</code> TC37–TC39</td><td>v-model · Enter 发送 · 空消息拦截</td></tr></tbody></table><p>---</p><p><a id="sec3"></a></p>
+</div>
+
+<div class="footer">YrY vv2.0.0 · 2026-06-06 · <a href="../../../../docs/index.html">文档中心</a></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.js"></script>
+<script>
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    YrY.switchPanel(this.dataset.panel, '.tab', '.panel');
+  });
+});
+document.querySelectorAll('pre').forEach(p => { p.addEventListener('click', function() {
+  var text = this.textContent || '';
+  navigator.clipboard.writeText(text.replace(/📋$/,'').trim()).then(() => {});
+})});
+</script>
+</body>
+</html>

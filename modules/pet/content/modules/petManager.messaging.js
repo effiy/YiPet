@@ -2,7 +2,7 @@
  * PetManager - 消息通信模块（从 `content/petManager.core.js` 拆分）
  * 负责处理来自 background 的消息
  */
-(function () {
+;(function () {
   'use strict'
   if (typeof window === 'undefined' || typeof window.PetManager === 'undefined') {
     return
@@ -37,7 +37,7 @@
             size: this.size,
             position: this.position,
             role: this.role || '教师',
-            model: this.currentModel
+            model: this.currentModel,
           })
           break
 
@@ -48,7 +48,10 @@
           break
 
         case 'toggleChatWindow':
-          console.log('[PetManager] 执行 toggleChatWindow (快捷键 Ctrl+Shift+X), 当前状态:', this.isChatOpen ? '打开' : '关闭')
+          console.log(
+            '[PetManager] 执行 toggleChatWindow (快捷键 Ctrl+Shift+X), 当前状态:',
+            this.isChatOpen ? '打开' : '关闭',
+          )
           this.toggleChatWindowVisibility()
           sendResponse({ success: true, isOpen: !this.isChatOpen })
           break
@@ -86,7 +89,7 @@
             size: this.size,
             position: this.position,
             role: this.role || '教师',
-            model: this.currentModel
+            model: this.currentModel,
           })
           break
 
@@ -107,9 +110,9 @@
 
         case 'chatWithPet':
           // 添加聊天动画效果
-          this.playChatAnimation();
+          this.playChatAnimation()
           // 异步处理
-          (async () => {
+          ;(async () => {
             try {
               // 确保有当前会话
               if (!this.currentSessionId) {

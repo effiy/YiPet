@@ -1,0 +1,234 @@
+{
+  "meta": {
+    "version": "2.0.0",
+    "generatedAt": "2026-06-06",
+    "story": "yipet-arch",
+    "storyPhase": "doc",
+    "formula": "F.story.knowledge-graph"
+  },
+  "story": {
+    "name": "yipet-arch",
+    "phase": "doc",
+    "analyzedAt": "2026-06-06"
+  },
+  "nodes": {
+    "domains": [
+      {
+        "id": "domain:yipet-core",
+        "type": "domain",
+        "name": "核心架构",
+        "summary": "YiPet Chrome Extension 的整体架构域，包含模块拓扑、IIFE 命名空间模式、三阶段加载顺序",
+        "tags": ["architecture", "module-topology", "iife", "manifest-v3"],
+        "complexity": "high",
+        "domainMeta": {
+          "entities": ["PetManager", "ApiManager", "TokenManager", "StorageHelper", "MessageRouter", "InjectionService"],
+          "businessRules": [
+            "IIFE 模块通过 (function(root) { ... })(globalThis) 注册到全局命名空间",
+            "manifest.json content_scripts.js 数组顺序 = 加载顺序",
+            "petManager.core.js 必须在 petManager.js 之前加载",
+            "vue.global.js 必须在所有 Vue 组件之前加载"
+          ],
+          "crossDomainInteractions": ["依赖 domain:yipet-dataflow 定义的数据流通道", "依赖 domain:yipet-security 定义的安全边界"]
+        }
+      },
+      {
+        "id": "domain:yipet-dataflow",
+        "type": "domain",
+        "name": "数据流与追踪",
+        "summary": "用户输入到 API 端点的完整数据流链路，包含聊天请求、会话 CRUD、FAQ 查询、Service Worker 消息路由、chrome.storage 读写路径",
+        "tags": ["dataflow", "sequence-diagram", "chrome-storage", "messaging"],
+        "complexity": "high",
+        "domainMeta": {
+          "entities": ["ChatInput", "ChatMessages", "SessionService", "FaqService", "RequestClient", "ReadableStream"],
+          "businessRules": [
+            "聊天请求通过 ApiManager 拦截器链 → TokenManager 注入 X-Token → RequestClient 发送 fetch",
+            "chrome.storage.local 读写必须经过 isChromeStorageAvailable / isContextInvalidated 预检",
+            "Service Worker 消息通过 MessageRouter 注册 action → handler 映射",
+            "配额超限时 cleanupOldData() 优先清理 petOssFiles"
+          ],
+          "crossDomainInteractions": ["消费 domain:yipet-core 的模块拓扑关系", "消费 domain:yipet-security 的 TokenManager 降级链路"]
+        }
+      },
+      {
+        "id": "domain:yipet-security",
+        "type": "domain",
+        "name": "安全面",
+        "summary": "认证、传输、输入、存储、权限五大安全面的威胁建模和缓解措施，含 STRIDE 六类威胁映射",
+        "tags": ["security", "stride", "xss", "token", "csp"],
+        "complexity": "high",
+        "domainMeta": {
+          "entities": ["TokenManager", "validateToken", "isSystemPage", "isChromeStorageAvailable", "isContextInvalidated"],
+          "businessRules": [
+            "Token 三级降级: L1 环境变量 → L2 chrome.storage.local → L3 空 Token",
+            "isSystemPage() 跳过 chrome:// chrome-extension:// moz-extension:// about: 页面",
+            "validateToken() 格式: /^[a-zA-Z0-9_-]+$/ 且长度 ≥ 10",
+            "存储操作前必须通过 isChromeStorageAvailable() + isContextInvalidated() 预检"
+          ],
+          "crossDomainInteractions": ["保护 domain:yipet-dataflow 中的所有数据流路径", "权限面限制 domain:yipet-core 的注入范围"]
+        }
+      },
+      {
+        "id": "domain:yipet-dependencies",
+        "type": "domain",
+        "name": "依赖与变更影响",
+        "summary": "全局符号消费矩阵、变更传播路径、破坏性变更检测规则、manifest 加载顺序约束",
+        "tags": ["dependencies", "change-impact", "breaking-change", "refactoring"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entities": ["消费矩阵", "传播路径", "破坏性检测", "加载顺序约束"],
+          "businessRules": [
+            "每个全局符号的消费者清单必须可追溯",
+            "变更传播按三波扩散: 直接消费者 → 间接消费者 → UI 层",
+            "6 种破坏性变更类型: 删除/签名变更/重命名/顺序变更/Props变更/CDN升级",
+            "manifest 加载顺序约束矩阵是硬约束，不可违反"
+          ],
+          "crossDomainInteractions": ["基于 domain:yipet-core 的模块拓扑和 IIFE 命名空间", "为所有域的变更提供影响评估框架"]
+        }
+      },
+      {
+        "id": "domain:yipet-onboarding",
+        "type": "domain",
+        "name": "新人上手",
+        "summary": "环境搭建、三环境调试（CS/SW/Popup）、3 类常见开发任务的标准化操作步骤",
+        "tags": ["onboarding", "dev-setup", "debugging", "sop"],
+        "complexity": "low",
+        "domainMeta": {
+          "entities": ["开发环境", "调试入口", "常见任务 SOP"],
+          "businessRules": [
+            "环境搭建不超过 5 步，每步有验证命令",
+            "三环境调试各自有独立入口和断点设置方法",
+            "3 类常见任务: 修改宠物行为 / 新增 API 端点 / 添加 Vue 组件"
+          ],
+          "crossDomainInteractions": ["引用 domain:yipet-core 的模块拓扑作为架构导读", "引用 domain:yipet-security 的安全约束作为开发规范"]
+        }
+      }
+    ],
+    "flows": [
+      {
+        "id": "flow:module-topology",
+        "type": "flow",
+        "name": "模块拓扑识别",
+        "summary": "从 manifest.json 出发，遍历 88 个 JS 文件，按 core/pet/extension/faq 四层归类，绘制 mermaid 拓扑图",
+        "tags": ["topology", "module-classification", "mermaid"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entryPoint": "manifest.json → content_scripts[0].js",
+          "entryType": "configuration"
+        }
+      },
+      {
+        "id": "flow:request-lifecycle",
+        "type": "flow",
+        "name": "聊天请求全生命周期",
+        "summary": "用户输入 → ChatInput → PetManager → AI API → ApiManager → TokenManager → RequestClient → fetch → API → 流式响应 → 聊天窗口渲染",
+        "tags": ["chat", "api", "streaming", "sequence"],
+        "complexity": "high",
+        "domainMeta": {
+          "entryPoint": "ChatInput (Vue) 用户回车事件",
+          "entryType": "user-interaction"
+        }
+      },
+      {
+        "id": "flow:storage-io",
+        "type": "flow",
+        "name": "chrome.storage 读写路径",
+        "summary": "5 类写入者 → 8 个存储 Key → 4 类读取者，所有操作经 3 级守卫 (isChromeStorageAvailable / isQuotaError / isContextInvalidated)",
+        "tags": ["storage", "chrome-api", "quota", "guard"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entryPoint": "StorageHelper.set() / StorageHelper.get()",
+          "entryType": "api-call"
+        }
+      },
+      {
+        "id": "flow:sw-messaging",
+        "type": "flow",
+        "name": "Service Worker 消息路由",
+        "summary": "6 条 Chrome Extension 消息通道的消息注册、路由、处理、响应全流程",
+        "tags": ["service-worker", "messaging", "chrome-api", "action-routing"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entryPoint": "chrome.runtime.onMessage 事件",
+          "entryType": "event-listener"
+        }
+      },
+      {
+        "id": "flow:auth-chain",
+        "type": "flow",
+        "name": "Token 认证链路",
+        "summary": "L1 环境变量 → L2 chrome.storage.local → L3 空 Token 三级降级 + validateToken 格式校验",
+        "tags": ["auth", "token", "degradation", "security"],
+        "complexity": "low",
+        "domainMeta": {
+          "entryPoint": "TokenManager.getToken()",
+          "entryType": "method-call"
+        }
+      },
+      {
+        "id": "flow:change-propagation",
+        "type": "flow",
+        "name": "变更传播路径",
+        "summary": "从全局符号变更出发，沿消费矩阵逐层追踪到直接消费者 → 间接消费者 → UI 层",
+        "tags": ["impact-analysis", "propagation", "dependencies"],
+        "complexity": "medium",
+        "domainMeta": {
+          "entryPoint": "任意全局符号变更",
+          "entryType": "event"
+        }
+      },
+      {
+        "id": "flow:dev-setup",
+        "type": "flow",
+        "name": "开发环境搭建",
+        "summary": "clone → 加载扩展 → 开启 SW DevTools → 配置 Token → 验证注入，5 步完成",
+        "tags": ["onboarding", "setup", "chrome-extension"],
+        "complexity": "low",
+        "domainMeta": {
+          "entryPoint": "git clone",
+          "entryType": "cli-command"
+        }
+      }
+    ],
+    "steps": [
+      { "id": "step:module-topology:manifest-parse", "type": "step", "name": "解析 manifest.json 加载顺序", "summary": "读取 content_scripts[0].js 数组，提取 88 个文件路径和加载顺序", "tags": ["manifest", "parsing"], "complexity": "low" },
+      { "id": "step:module-topology:iife-extract", "type": "step", "name": "提取 IIFE 注册模式", "summary": "扫描每个 JS 文件的 IIFE 结构，识别注册方式 (window/self/globalThis)、导出符号、依赖引用", "tags": ["iife", "extraction"], "complexity": "medium" },
+      { "id": "step:module-topology:topology-render", "type": "step", "name": "渲染模块拓扑图", "summary": "按 core/pet/extension/faq 四层生成 mermaid flowchart，含子图和层间依赖箭头", "tags": ["mermaid", "rendering"], "complexity": "medium" },
+      { "id": "step:request-lifecycle:user-input", "type": "step", "name": "用户输入捕获", "summary": "ChatInput 组件捕获回车事件，提取消息文本", "tags": ["vue", "input"], "complexity": "low" },
+      { "id": "step:request-lifecycle:prompt-build", "type": "step", "name": "Prompt 构建", "summary": "ai.prompt.js 将上下文和消息拼装为完整 prompt", "tags": ["prompt", "construction"], "complexity": "medium" },
+      { "id": "step:request-lifecycle:api-request", "type": "step", "name": "API 请求发送", "summary": "ApiManager 经拦截器链 (Token 注入 → 日志记录) → RequestClient → fetch → api.effiy.cn", "tags": ["api", "interceptor"], "complexity": "high" },
+      { "id": "step:request-lifecycle:stream-render", "type": "step", "name": "流式响应渲染", "summary": "ReadableStream 逐块读取 SSE 数据 → PetManager chunk callback → ChatUI 增量更新", "tags": ["streaming", "sse", "rendering"], "complexity": "high" },
+      { "id": "step:storage-io:write", "type": "step", "name": "存储写入", "summary": "StorageHelper.set() → isChromeStorageAvailable 预检 → chrome.storage.local.set → 错误处理", "tags": ["write", "chrome-api"], "complexity": "low" },
+      { "id": "step:storage-io:read", "type": "step", "name": "存储读取", "summary": "StorageHelper.get() → isChromeStorageAvailable 预检 → chrome.storage.local.get → 结果返回", "tags": ["read", "chrome-api"], "complexity": "low" },
+      { "id": "step:storage-io:quota-cleanup", "type": "step", "name": "配额超限清理", "summary": "isQuotaError() 检测 → cleanupOldData() 清理 petOssFiles → 重试写入", "tags": ["quota", "cleanup"], "complexity": "medium" }
+    ]
+  },
+  "edges": [
+    { "source": "domain:yipet-core", "target": "flow:module-topology", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:yipet-core", "target": "flow:change-propagation", "type": "contains_flow", "weight": 0.8 },
+    { "source": "domain:yipet-dataflow", "target": "flow:request-lifecycle", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:yipet-dataflow", "target": "flow:storage-io", "type": "contains_flow", "weight": 0.9 },
+    { "source": "domain:yipet-dataflow", "target": "flow:sw-messaging", "type": "contains_flow", "weight": 0.9 },
+    { "source": "domain:yipet-security", "target": "flow:auth-chain", "type": "contains_flow", "weight": 1.0 },
+    { "source": "domain:yipet-onboarding", "target": "flow:dev-setup", "type": "contains_flow", "weight": 1.0 },
+    { "source": "flow:module-topology", "target": "step:module-topology:manifest-parse", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:module-topology", "target": "step:module-topology:iife-extract", "type": "flow_step", "weight": 0.2 },
+    { "source": "flow:module-topology", "target": "step:module-topology:topology-render", "type": "flow_step", "weight": 0.3 },
+    { "source": "flow:request-lifecycle", "target": "step:request-lifecycle:user-input", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:request-lifecycle", "target": "step:request-lifecycle:prompt-build", "type": "flow_step", "weight": 0.2 },
+    { "source": "flow:request-lifecycle", "target": "step:request-lifecycle:api-request", "type": "flow_step", "weight": 0.3 },
+    { "source": "flow:request-lifecycle", "target": "step:request-lifecycle:stream-render", "type": "flow_step", "weight": 0.4 },
+    { "source": "flow:storage-io", "target": "step:storage-io:write", "type": "flow_step", "weight": 0.1 },
+    { "source": "flow:storage-io", "target": "step:storage-io:read", "type": "flow_step", "weight": 0.2 },
+    { "source": "flow:storage-io", "target": "step:storage-io:quota-cleanup", "type": "flow_step", "weight": 0.3 },
+    { "source": "domain:yipet-core", "target": "domain:yipet-dataflow", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:yipet-core", "target": "domain:yipet-security", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:yipet-dataflow", "target": "domain:yipet-security", "type": "cross_domain", "weight": 0.5 },
+    { "source": "domain:yipet-core", "target": "domain:yipet-dependencies", "type": "cross_domain", "weight": 0.6 }
+  ],
+  "layers": [
+    { "id": "layer:infrastructure", "name": "基础设施层", "description": "core/ 共享基础设施 — config, token, request, ApiManager, StorageHelper", "nodeIds": ["flow:module-topology", "flow:storage-io", "flow:auth-chain"] },
+    { "id": "layer:business", "name": "业务逻辑层", "description": "modules/pet/ 宠物主模块 — PetManager, 聊天, 会话, FAQ", "nodeIds": ["flow:request-lifecycle", "flow:change-propagation"] },
+    { "id": "layer:background", "name": "后台服务层", "description": "modules/extension/ 扩展后台 — Service Worker, Popup, 企微集成", "nodeIds": ["flow:sw-messaging"] },
+    { "id": "layer:onboarding", "name": "开发者体验层", "description": "新人上手 — 环境搭建, 调试, 常见任务", "nodeIds": ["flow:dev-setup"] }
+  ]
+}

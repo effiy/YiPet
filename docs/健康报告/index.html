@@ -26,11 +26,12 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 .hi-header h1 { font-size: 1.6rem; }
 .hi-header .hi-meta { color: var(--text3); font-size: .82rem; margin-top: 6px; }
 .hi-card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
-.hi-latest { text-align: center; padding: 16px; margin-bottom: 20px; background: rgba(255,193,7,.05); border-radius: 10px; border: var(--border); }
+.hi-latest { text-align: center; padding: 16px; margin-bottom: 20px; background: rgba(34,197,94,.06); border-radius: 10px; border: 1px solid rgba(34,197,94,.15); }
 .hi-latest-label { font-size: .78rem; color: var(--text3); }
-.hi-latest-score { font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 0 4px; }
+.hi-latest-score { font-size: 1.8rem; font-weight: 800; color: var(--pass); margin: 0 4px; }
 .hi-latest-grade { font-size: 1rem; font-weight: 700; color: var(--pass); }
 .hi-latest-date { display: block; font-size: .72rem; color: var(--text3); margin-top: 4px; }
+.hi-latest-trend { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .7rem; font-weight: 700; background: rgba(34,197,94,.12); color: var(--pass); margin-left: 6px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 16px; text-align: left; border-bottom: var(--border); font-size: .88rem; }
 th { color: var(--text3); font-size: .76rem; text-transform: uppercase; }
@@ -53,42 +54,54 @@ td a:hover { color: var(--accent); }
 
 <div class="hi-header">
   <h1>🩺 健康报告</h1>
-  <div class="hi-meta">5 份历史报告</div>
+  <div class="hi-meta">6 份历史报告</div>
 </div>
 
 <div class="hi-latest">
           <span class="hi-latest-label">最新评估:</span>
-          <span class="hi-latest-score">77 分</span>
-          <span class="hi-latest-grade">B 级</span>
-          <span class="hi-latest-date">2026-06-11</span>
+          <span class="hi-latest-score">86 分</span>
+          <span class="hi-latest-grade">A 级</span>
+          <span class="hi-latest-trend">↑ +9</span>
+          <span class="hi-latest-date">2026-06-12</span>
         </div>
 
 <div class="hi-card">
   <table>
-    <thead><tr><th>日期</th><th>时间</th><th>操作</th></tr></thead>
+    <thead><tr><th>日期</th><th>时间</th><th>评分</th><th>操作</th></tr></thead>
     <tbody><tr>
+      <td><a href="health-2026-06-12-170055.html">🩺 2026-06-12</a></td>
+      <td>170055</td>
+      <td style="color:#22c55e;font-weight:700">86 A</td>
+      <td><a href="health-2026-06-12-170055.html">查看</a></td>
+    </tr>
+<tr>
       <td><a href="health-2026-06-11-mq8vuda3.html">🩺 2026-06-11</a></td>
       <td>mq8vuda3</td>
+      <td style="color:#f59e0b">77 B</td>
       <td><a href="health-2026-06-11-mq8vuda3.html">查看</a></td>
     </tr>
 <tr>
       <td><a href="health-2026-06-11-mq8vpp0h.html">🩺 2026-06-11</a></td>
       <td>mq8vpp0h</td>
+      <td style="color:#f59e0b">75 B</td>
       <td><a href="health-2026-06-11-mq8vpp0h.html">查看</a></td>
     </tr>
 <tr>
       <td><a href="health-2026-06-11-mq8tzkp8.html">🩺 2026-06-11</a></td>
       <td>mq8tzkp8</td>
+      <td style="color:#f59e0b">74 B</td>
       <td><a href="health-2026-06-11-mq8tzkp8.html">查看</a></td>
     </tr>
 <tr>
       <td><a href="health-2026-06-11-mq8ttp6d.html">🩺 2026-06-11</a></td>
       <td>mq8ttp6d</td>
+      <td style="color:#f59e0b">73 B</td>
       <td><a href="health-2026-06-11-mq8ttp6d.html">查看</a></td>
     </tr>
 <tr>
       <td><a href="health-2026-06-10-224452.html">🩺 2026-06-10</a></td>
       <td>224452</td>
+      <td style="color:#f59e0b">74 B</td>
       <td><a href="health-2026-06-10-224452.html">查看</a></td>
     </tr></tbody>
   </table>

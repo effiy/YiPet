@@ -1,24 +1,23 @@
 /**
- * DOM操作工具类
+ * DOM 操作工具类
  *
- * 功能说明：
- * - 提供统一的DOM查询和操作方法
- * - 减少重复代码，提高代码可维护性
- * - 所有方法都包含安全检查，避免空指针错误
+ * 职责聚焦：DOM 查询/操作 + 扩展上下文错误检测
+ * 模板加载 → TemplateHelper   脚本注入 → ScriptHelper   文件选择 → FileHelper
  *
  * 使用示例：
  * ```javascript
- * const element = DomHelper.getElement('myButton');
- * DomHelper.setText(element, '点击我');
- * DomHelper.addEventListener(element, 'click', handleClick);
+ * const el = DomHelper.getElement('myButton');
+ * DomHelper.setText(el, '点击我');
+ * DomHelper.addEventListener(el, 'click', handleClick);
  * ```
  */
-
 class DomHelper {
+  /* ═══════════════════════ DOM 查询 ═══════════════════════ */
+
   /**
-   * 安全获取DOM元素
-   * @param {string} id - 元素ID
-   * @returns {HTMLElement|null} DOM元素或null
+   * 安全获取 DOM 元素
+   * @param {string} id - 元素 ID
+   * @returns {HTMLElement|null}
    */
   static getElement(id) {
     if (!id) return null
@@ -33,8 +32,8 @@ class DomHelper {
   /**
    * 安全查询子元素
    * @param {HTMLElement} parent - 父元素
-   * @param {string} selector - CSS选择器
-   * @returns {HTMLElement|null} 子元素或null
+   * @param {string} selector - CSS 选择器
+   * @returns {HTMLElement|null}
    */
   static querySelector(parent, selector) {
     if (!parent || !selector) return null
@@ -46,92 +45,7 @@ class DomHelper {
     }
   }
 
-  static resolveExtensionResourceUrl(relativePath) {
-    if (!relativePath) return ''
-    try {
-      if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) return chrome.runtime.getURL(relativePath)
-    } catch (_) {}
-    return relativePath
-  }
-
-  static async loadHtmlTemplate(resourcePath, selector, errorMessage) {
-    const resolvedPath = String(resourcePath || '').trim()
-    const resolvedSelector = String(selector || '').trim()
-    const key = `${resolvedPath}::${resolvedSelector}`
-
-    const cache = this._templateCache || (this._templateCache = Object.create(null))
-    if (Object.prototype.hasOwnProperty.call(cache, key)) return cache[key]
-
-    const pending = this._templatePromises || (this._templatePromises = Object.create(null))
-    if (pending[key]) return pending[key]
-
-    pending[key] = (async () => {
-      const url = this.resolveExtensionResourceUrl(resolvedPath)
-      const res = await fetch(url)
-      if (!res.ok) {
-        const prefix = String(errorMessage || '').trim() || 'Failed to load template'
-        throw new Error(`${prefix}: ${res.status}`)
-      }
-      const html = await res.text()
-      const doc = new DOMParser().parseFromString(html, 'text/html')
-      const el = doc.querySelector(resolvedSelector)
-      const template = el ? el.innerHTML : ''
-      cache[key] = template
-      return template
-    })()
-
-    try {
-      return await pending[key]
-    } finally {
-      try {
-        delete pending[key]
-      } catch (_) {
-        pending[key] = null
-      }
-    }
-  }
-
-  static pickFile(options = {}) {
-    const accept = options?.accept
-    const multiple = !!options?.multiple
-
-    return new Promise((resolve) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      if (accept) input.accept = accept
-      if (multiple) input.multiple = true
-      input.className = 'js-hidden'
-
-      const cleanup = () => {
-        try {
-          input.removeEventListener('change', onChange)
-        } catch (_) {}
-        try {
-          if (input.parentNode) input.parentNode.removeChild(input)
-        } catch (_) {}
-      }
-
-      const onChange = () => {
-        const files = input.files
-        cleanup()
-        if (multiple) {
-          resolve(files ? Array.from(files) : [])
-          return
-        }
-        resolve(files && files[0] ? files[0] : null)
-      }
-
-      input.addEventListener('change', onChange)
-      document.body.appendChild(input)
-
-      try {
-        input.click()
-      } catch (_) {
-        cleanup()
-        resolve(multiple ? [] : null)
-      }
-    })
-  }
+  /* ═══════════════════════ DOM 操作 ═══════════════════════ */
 
   /**
    * 安全设置元素文本内容
@@ -139,9 +53,7 @@ class DomHelper {
    * @param {string} text - 文本内容
    */
   static setText(element, text) {
-    if (element) {
-      element.textContent = text || ''
-    }
+    if (element) element.textContent = text || ''
   }
 
   /**
@@ -150,9 +62,7 @@ class DomHelper {
    * @param {string|number} value - 值
    */
   static setValue(element, value) {
-    if (element && 'value' in element) {
-      element.value = value
-    }
+    if (element && 'value' in element) element.value = value
   }
 
   /**
@@ -169,7 +79,7 @@ class DomHelper {
 
   /**
    * 安全设置按钮加载状态
-   * @param {string} buttonId - 按钮ID
+   * @param {string} buttonId - 按钮 ID
    * @param {boolean} loading - 是否加载中
    */
   static setButtonLoading(buttonId, loading) {
@@ -211,9 +121,9 @@ class DomHelper {
   }
 
   /**
-   * HTML转义（防止XSS攻击）
+   * HTML 转义（防 XSS 攻击）
    * @param {string} text - 要转义的文本
-   * @returns {string} 转义后的HTML字符串
+   * @returns {string} 转义后的 HTML 字符串
    */
   static escapeHtml(text) {
     if (!text) return ''
@@ -222,6 +132,25 @@ class DomHelper {
     return div.innerHTML
   }
 
+  /**
+   * 按 ID 移除元素
+   * @param {string} id - 元素 ID
+   */
+  static removeElementById(id) {
+    if (!id) return
+    try {
+      const el = document.getElementById(id)
+      if (el && el.parentNode) el.parentNode.removeChild(el)
+    } catch (_) {}
+  }
+
+  /* ═══════════════════════ 错误检测 ═══════════════════════ */
+
+  /**
+   * 检测是否为扩展上下文失效错误
+   * @param {Error|*} error - 错误对象
+   * @returns {boolean}
+   */
   static isContextInvalidatedError(error) {
     try {
       if (
@@ -243,6 +172,12 @@ class DomHelper {
     )
   }
 
+  /**
+   * 获取扩展资源 URL（带上下文失效检测）
+   * @param {string} relativePath - 相对路径
+   * @returns {string} 完整 URL
+   * @throws {Error} 扩展上下文失效时抛出
+   */
   static getExtensionUrlOrThrow(relativePath) {
     try {
       if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.getURL !== 'function') {
@@ -267,147 +202,41 @@ class DomHelper {
     }
   }
 
-  static removeElementById(id) {
-    if (!id) return
-    try {
-      const el = document.getElementById(id)
-      if (el && el.parentNode) el.parentNode.removeChild(el)
-    } catch (_) {}
+  /* ═══════════════════════ 委托方法（实现见对应 Helper 文件） ═══════════════════════ */
+
+  /** @see TemplateHelper.resolveExtensionResourceUrl */
+  static resolveExtensionResourceUrl(relativePath) {
+    return TemplateHelper.resolveExtensionResourceUrl(relativePath)
   }
 
-  static createDataContainer({ id, className, attributes, parent }) {
-    if (!id) return null
-    this.removeElementById(id)
-    try {
-      const el = document.createElement('div')
-      el.id = id
-      if (className) el.className = className
-      if (attributes && typeof attributes === 'object') {
-        Object.keys(attributes).forEach((key) => {
-          try {
-            el.setAttribute(key, String(attributes[key]))
-          } catch (_) {}
-        })
-      }
-      const target = parent || document.head || document.documentElement
-      ;(target || document.documentElement).appendChild(el)
-      return el
-    } catch (_) {
-      return null
-    }
+  /** @see TemplateHelper.loadHtmlTemplate */
+  static async loadHtmlTemplate(resourcePath, selector, errorMessage) {
+    return TemplateHelper.loadHtmlTemplate(resourcePath, selector, errorMessage)
   }
 
-  static injectScript({ src, parent, async = false, charset = 'UTF-8' }) {
-    if (!src) return null
-    try {
-      const script = document.createElement('script')
-      script.src = src
-      script.charset = charset
-      script.async = !!async
-      const target = parent || document.head || document.documentElement
-      ;(target || document.documentElement).appendChild(script)
-      return script
-    } catch (_) {
-      return null
-    }
+  /** @see FileHelper.pickFile */
+  static pickFile(options) {
+    return FileHelper.pickFile(options)
   }
 
-  static waitForWindowEvent({ successEvent, errorEvent, timeoutMs = 15000, isSuccess, isError }) {
-    return new Promise((resolve, reject) => {
-      let timeoutId = null
-      const cleanup = () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-          timeoutId = null
-        }
-        if (successEvent) {
-          try {
-            window.removeEventListener(successEvent, onSuccess)
-          } catch (_) {}
-        }
-        if (errorEvent) {
-          try {
-            window.removeEventListener(errorEvent, onError)
-          } catch (_) {}
-        }
-      }
-
-      const onSuccess = (e) => {
-        try {
-          if (typeof isSuccess === 'function' && !isSuccess(e)) return
-        } catch (_) {}
-        cleanup()
-        resolve(e)
-      }
-
-      const onError = (e) => {
-        try {
-          if (typeof isError === 'function' && !isError(e)) return
-        } catch (_) {}
-        cleanup()
-        reject(e)
-      }
-
-      if (successEvent) window.addEventListener(successEvent, onSuccess)
-      if (errorEvent) window.addEventListener(errorEvent, onError)
-
-      timeoutId = setTimeout(
-        () => {
-          cleanup()
-          reject(new Error('等待页面事件超时'))
-        },
-        Math.max(0, Number(timeoutMs) || 0),
-      )
-    })
+  /** @see ScriptHelper.injectScript */
+  static injectScript(opts) {
+    return ScriptHelper.injectScript(opts)
   }
 
-  static async runPageScriptWithData({
-    scriptSrc,
-    dataContainerId,
-    dataAttributes,
-    successEvent,
-    errorEvent,
-    timeoutMs,
-    cleanupDelayMs = 1000,
-    isSuccess,
-    isError,
-  }) {
-    const container = dataContainerId
-      ? this.createDataContainer({
-          id: dataContainerId,
-          className: 'tw-hidden',
-          attributes: dataAttributes,
-          parent: document.head || document.documentElement,
-        })
-      : null
+  /** @see ScriptHelper.createDataContainer */
+  static createDataContainer(opts) {
+    return ScriptHelper.createDataContainer(opts)
+  }
 
-    const script = this.injectScript({
-      src: scriptSrc,
-      parent: document.head || document.documentElement,
-      async: false,
-    })
+  /** @see ScriptHelper.waitForWindowEvent */
+  static waitForWindowEvent(opts) {
+    return ScriptHelper.waitForWindowEvent(opts)
+  }
 
-    try {
-      return await this.waitForWindowEvent({ successEvent, errorEvent, timeoutMs, isSuccess, isError })
-    } finally {
-      setTimeout(
-        () => {
-          if (script && script.parentNode) {
-            try {
-              script.parentNode.removeChild(script)
-            } catch (_) {}
-          }
-          if (container && container.parentNode) {
-            try {
-              container.parentNode.removeChild(container)
-            } catch (_) {}
-          } else if (dataContainerId) {
-            this.removeElementById(dataContainerId)
-          }
-        },
-        Math.max(0, Number(cleanupDelayMs) || 0),
-      )
-    }
+  /** @see ScriptHelper.runPageScriptWithData */
+  static async runPageScriptWithData(opts) {
+    return ScriptHelper.runPageScriptWithData(opts)
   }
 }
 

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🩺 健康报告 · 2026-06-12 — YiPet</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/yry-cdn-lib@1.1.0/theme.css">
+<style>
+:root {
+  --bg: rgba(22,22,32,1);
+  --bg-card: linear-gradient(159deg, rgba(38,38,52,1) 0%, rgba(34,34,46,1) 100%);
+  --accent: #FFC107;
+  --cyan: #22d3ee;
+  --pass: #22c55e; --fail: #ef4444; --warn: #f59e0b; --info: #60a5fa;
+  --text: rgba(250,250,252,1); --text2: rgba(160,160,164,1); --text3: rgba(110,110,114,1);
+  --radius: 12px; --border: 1px solid rgba(255,255,255,0.06);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --grade-a: #22c55e; --grade-b: #f59e0b; --grade-c: #f97316; --grade-d: #ef4444;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; line-height: 1.6; min-height: 100vh; }
+.hr-container { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+
+/* Breadcrumb */
+.hr-bc { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; font-size: .76rem; }
+.hr-bc a { color: var(--cyan); text-decoration: none; transition: color 0.15s; }
+.hr-bc a:hover { color: var(--accent); }
+.hr-bc .hr-bc-sep { color: var(--text3); opacity: .4; }
+.hr-bc .hr-bc-cur { color: var(--text2); }
+
+/* Header */
+.hr-header { text-align: center; margin-bottom: 28px; }
+.hr-header .hr-icon { font-size: 2.8rem; margin-bottom: 8px; }
+.hr-header h1 { font-size: 1.6rem; font-weight: 700; }
+.hr-header .hr-meta { color: var(--text3); font-size: .82rem; margin-top: 6px; }
+
+/* Score Hero */
+.hr-hero { display: flex; align-items: center; justify-content: center; gap: 24px; padding: 28px 32px; margin-bottom: 24px;
+  background: var(--bg-card); border: var(--border); border-radius: var(--radius); box-shadow: var(--shadow); flex-wrap: wrap; }
+.hr-hero-score { text-align: center; }
+.hr-hero-num { font-size: 4rem; font-weight: 900; line-height: 1; color: var(--pass); }
+.hr-hero-grade { display: inline-block; padding: 4px 20px; border-radius: 20px; font-size: 1.1rem; font-weight: 800;
+  background: rgba(34,197,94,.15); color: var(--pass); margin-top: 6px; }
+.hr-hero-grade.B { background: rgba(245,158,11,.15); color: var(--warn); }
+.hr-hero-grade.A { background: rgba(34,197,94,.15); color: var(--pass); }
+.hr-hero-info { flex: 1; min-width: 200px; }
+.hr-hero-info .hr-hi-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: .85rem;
+  border-bottom: 1px solid rgba(255,255,255,.04); color: var(--text2); }
+.hr-hero-info .hr-hi-row span:last-child { color: var(--text); font-weight: 600; }
+.hr-hero-delta { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px;
+  font-size: .78rem; font-weight: 700; }
+.hr-hero-delta.up { background: rgba(34,197,94,.12); color: var(--pass); }
+
+/* Trend bar */
+.hr-trend { display: flex; gap: 4px; align-items: flex-end; justify-content: center; padding: 8px 0; margin-bottom: 24px; height: 44px; }
+.hr-trend-bar { width: 18px; border-radius: 3px 3px 0 0; transition: height .3s; }
+.hr-trend-label { font-size: .62rem; color: var(--text3); text-align: center; margin-top: 2px; }
+
+/* Section card */
+.hr-card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 24px;
+  box-shadow: var(--shadow); margin-bottom: 20px; }
+.hr-card h2 { font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.hr-card h2 .hr-h2-icon { font-size: 1.2rem; }
+
+/* Stats grid */
+.hr-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.hr-stat { background: rgba(255,255,255,.02); border: var(--border); border-radius: 10px; padding: 16px;
+  text-align: center; }
+.hr-stat .hr-s-val { font-size: 1.5rem; font-weight: 700; }
+.hr-stat .hr-s-val.pass { color: var(--pass); }
+.hr-stat .hr-s-val.warn { color: var(--warn); }
+.hr-stat .hr-s-val.info { color: var(--info); }
+.hr-stat .hr-s-lbl { font-size: .7rem; color: var(--text3); margin-top: 4px; }
+.hr-stat .hr-s-sub { font-size: .65rem; color: var(--text2); margin-top: 2px; }
+
+/* Dimension matrix */
+.hr-dims { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.hr-dim { background: rgba(255,255,255,.02); border: var(--border); border-radius: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px; }
+.hr-dim-name { font-size: .76rem; color: var(--text2); }
+.hr-dim-score { font-size: 1.3rem; font-weight: 700; }
+.hr-dim-bar-wrap { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-top: 4px; }
+.hr-dim-bar { height: 100%; border-radius: 2px; transition: width .4s; }
+
+/* Findings */
+.hr-finding { padding: 14px 18px; margin-bottom: 10px; border-radius: 10px; border: var(--border); }
+.hr-finding.info { background: rgba(59,130,246,.04); border-left: 3px solid var(--info); }
+.hr-finding.warn { background: rgba(245,158,11,.04); border-left: 3px solid var(--warn); }
+.hr-finding.pass { background: rgba(34,197,94,.04); border-left: 3px solid var(--pass); }
+.hr-finding.fail { background: rgba(239,68,68,.04); border-left: 3px solid var(--fail); }
+.hr-finding-head { font-weight: 600; font-size: .88rem; display: flex; align-items: center; gap: 6px; }
+.hr-finding-body { margin-top: 6px; color: var(--text2); font-size: .8rem; line-height: 1.55; }
+.hr-finding-meta { margin-top: 6px; font-size: .7rem; color: var(--text3); }
+
+/* Comparison table */
+.hr-cmp { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.hr-cmp th, .hr-cmp td { padding: 8px 14px; text-align: left; border-bottom: var(--border); font-size: .82rem; }
+.hr-cmp th { color: var(--text3); font-size: .72rem; text-transform: uppercase; }
+.hr-cmp .hr-cmp-up { color: var(--pass); font-weight: 600; }
+.hr-cmp .hr-cmp-same { color: var(--text2); }
+
+/* Recommendations */
+.hr-rec { padding: 12px 16px; margin-bottom: 8px; border-radius: 8px; background: rgba(255,193,7,.04);
+  border: 1px solid rgba(255,193,7,.1); font-size: .82rem; color: var(--text2); }
+.hr-rec .hr-rec-prio { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .68rem;
+  font-weight: 700; margin-right: 8px; }
+.hr-rec .hr-rec-prio.p0 { background: rgba(239,68,68,.15); color: var(--fail); }
+.hr-rec .hr-rec-prio.p1 { background: rgba(245,158,11,.15); color: var(--warn); }
+.hr-rec .hr-rec-prio.p2 { background: rgba(59,130,246,.12); color: var(--info); }
+
+/* Footer */
+.hr-footer { text-align: center; color: var(--text3); font-size: .74rem; margin-top: 48px; padding-top: 20px;
+  border-top: var(--border); }
+.hr-footer a { color: var(--cyan); text-decoration: none; }
+
+/* Animations */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.hr-card, .hr-hero, .hr-finding { animation: fadeInUp 0.4s ease both; }
+.hr-card:nth-child(2) { animation-delay: .05s; }
+.hr-card:nth-child(3) { animation-delay: .1s; }
+.hr-card:nth-child(4) { animation-delay: .15s; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Breadcrumb -->
+<nav class="breadcrumb">
+  <a href="../index.html">📄 文档中心</a>
+  <span class="bc-sep">/</span>
+  <a href="index.html">🩺 健康报告</a>
+  <span class="bc-sep">/</span>
+  <span class="bc-cur">2026-06-12</span>
+</nav>
+
+<!-- Header -->
+<div class="header">
+  <div class="hr-icon">🩺</div>
+  <h1>YiPet 项目健康报告</h1>
+  <div class="hr-meta">2026-06-12 17:00:55 · 分支 main · 综合评估 <span class="badge" style="background:rgba(34,197,94,.15);color:#22c55e">A 级</span></div>
+</div>
+
+<!-- Score Hero -->
+<div class="hr-hero">
+  <div class="hr-hero-score">
+    <div class="hr-hero-num" style="color:#22c55e">86</div>
+    <div class="hr-hero-grade A">A 级 · 健康</div>
+  </div>
+  <div class="hr-hero-info">
+    <div class="hr-hi-row"><span>📊 上次评分</span><span>77 分 / B 级</span></div>
+    <div class="hr-hi-row"><span>📈 变化</span><span><span class="hr-hero-delta up">↑ +3 (本回合)</span></span></div>
+    <div class="hr-hi-row"><span>📁 代码文件</span><span>98 个 JS · 33,060 行</span></div>
+    <div class="hr-hi-row"><span>🌿 分支</span><span>main (clean)</span></div>
+    <div class="hr-hi-row"><span>📦 运行时依赖</span><span>0</span></div>
+    <div class="hr-hi-row"><span>🏷️ 版本</span><span>1.1.1</span></div>
+  </div>
+</div>
+
+<!-- Trend Mini -->
+<div style="text-align:center;margin-bottom:24px;">
+  <div style="font-size:.7rem;color:var(--text3);margin-bottom:6px;">📈 健康评分走势（最近 5 次）</div>
+  <div style="display:flex;gap:8px;align-items:flex-end;justify-content:center;height:48px;">
+    <div style="text-align:center"><div style="width:26px;height:34px;background:rgba(245,158,11,.4);border-radius:3px 3px 0 0;" title="06-10: 74/B"></div><span style="font-size:.56rem;color:var(--text3)">06-10</span></div>
+    <div style="text-align:center"><div style="width:26px;height:35px;background:rgba(245,158,11,.5);border-radius:3px 3px 0 0;" title="06-11①: 75/B"></div><span style="font-size:.56rem;color:var(--text3)">06-11a</span></div>
+    <div style="text-align:center"><div style="width:26px;height:37px;background:rgba(245,158,11,.6);border-radius:3px 3px 0 0;" title="06-11②: 77/B"></div><span style="font-size:.56rem;color:var(--text3)">06-11b</span></div>
+    <div style="text-align:center"><div style="width:28px;height:39px;background:rgba(34,197,94,.4);border-radius:3px 3px 0 0;" title="06-12①: 83/A-"></div><span style="font-size:.56rem;color:var(--text3)">06-12a</span></div>
+    <div style="text-align:center"><div style="width:34px;height:44px;background:rgba(34,197,94,.6);border-radius:3px 3px 0 0;box-shadow:0 0 8px rgba(34,197,94,.25);" title="06-12②: 86/A"></div><span style="font-size:.62rem;color:var(--pass);font-weight:700">06-12b</span></div>
+  </div>
+</div>
+
+<!-- Dimension Matrix -->
+<div class="hr-card">
+  <h2><span class="hr-h2-icon">📐</span> 维度健康矩阵</h2>
+  <div class="hr-dims">
+    <div class="hr-dim">
+      <div class="hr-dim-name">📏 文件膨胀</div>
+      <div class="hr-dim-score" style="color:var(--pass)">82</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:82%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">🧩 复杂度</div>
+      <div class="hr-dim-score" style="color:var(--pass)">80</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:80%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">🏗️ 架构边界</div>
+      <div class="hr-dim-score" style="color:var(--pass)">92</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:92%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">📦 依赖健康</div>
+      <div class="hr-dim-score" style="color:var(--pass)">95</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:95%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">🛡️ 错误处理</div>
+      <div class="hr-dim-score" style="color:var(--pass)">88</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:88%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">📝 文档质量</div>
+      <div class="hr-dim-score" style="color:var(--pass)">87</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:87%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">🔧 技术债</div>
+      <div class="hr-dim-score" style="color:var(--pass)">94</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:94%;background:var(--pass)"></div></div>
+    </div>
+    <div class="hr-dim">
+      <div class="hr-dim-name">🔄 工作流</div>
+      <div class="hr-dim-score" style="color:var(--pass)">86</div>
+      <div class="hr-dim-bar-wrap"><div class="hr-dim-bar" style="width:86%;background:var(--pass)"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Findings -->
+<div class="hr-card">
+  <h2><span class="hr-h2-icon">🔍</span> 检查发现</h2>
+
+  <div class="hr-finding warn">
+    <div class="hr-finding-head">⚠️ 1. 文件膨胀 — 7 个 JS 文件超 1000 行</div>
+    <div class="hr-finding-body">
+      petManager.chat.js (1,677L) · ChatWindow/index.js (1,668L) · petManager.editor.core.js (1,329L) ·
+      petManager.roles.js (1,292L) · petManager.session.crud.js (1,079L) · petManager.core.js (1,035L) ·
+      FaqManager/index.js (1,027L)
+    </div>
+    <div class="hr-finding-meta">🟢 较上次报告减少 1 个文件（ChatInput/index.js 降至 997 行）</div>
+  </div>
+
+  <div class="hr-finding pass">
+    <div class="hr-finding-head">✅ 2. 复杂度 — 已改善（本回合分拆 domHelper.js）</div>
+    <div class="hr-finding-body">
+      domHelper.js 从 419L/13 方法/5 类职责 → 拆分为 4 个模块：domHelper.js (248L, DOM 操作+错误检测)、
+      templateHelper.js (77L, 模板加载+缓存)、scriptHelper.js (215L, 脚本注入+页面通信)、
+      fileHelper.js (67L, 文件选择)。token.js (301L) 已去重：_getEnvToken 缓存化、抽出 _readFromChromeStorage 共享方法。
+    </div>
+    <div class="hr-finding-meta">🟢 复杂度维度从 72 → 80 (+8)，dom/ 目录无单文件超 250 行</div>
+  </div>
+
+  <div class="hr-finding pass">
+    <div class="hr-finding-head">✅ 3. 架构边界清洁</div>
+    <div class="hr-finding-body">
+      core/ 目录无 import 指向 modules/，仅 IIFE 全局命名空间引用（window.petManager、window.DomHelper 等），
+      符合 Chrome Extension Manifest V3 架构预期。content-script ↔ service-worker 通信走 chrome.runtime 消息通道。
+    </div>
+  </div>
+
+  <div class="hr-finding pass">
+    <div class="hr-finding-head">✅ 4. 依赖健康 — 0 运行时依赖</div>
+    <div class="hr-finding-body">
+      纯 JavaScript (IIFE 模块)，无 npm 运行时依赖。Vue 3、Tailwind CSS、marked.js、turndown.js、Mermaid
+      均通过 CDN 懒加载，版本可控且无供应链风险。
+    </div>
+  </div>
+
+  <div class="hr-finding pass">
+    <div class="hr-finding-head">✅ 5. 错误处理完备 — 462 处 catch 块</div>
+    <div class="hr-finding-body">
+      全局 isContextInvalidated() 守卫 + isChromeStorageAvailable() 预检覆盖所有 chrome API 调用点。
+      Extension 上下文失效有三级降级：环境变量 → chrome.storage → 空 token 提示。存储配额超限有 LRU 淘汰机制。
+    </div>
+  </div>
+
+  <div class="hr-finding pass">
+    <div class="hr-finding-head">✅ 6. 零技术债标记 — 0 个 TODO/FIXME/HACK</div>
+    <div class="hr-finding-body">
+      全项目 98 个 JS 文件中未发现任何 TODO、FIXME、HACK 标记。代码注释率适中，JSDoc 覆盖核心 API。
+    </div>
+  </div>
+
+  <div class="hr-finding pass">
+    <div class="hr-finding-head">✅ 7. 工作树清洁 — 0 个未提交变更</div>
+    <div class="hr-finding-body">
+      git status 完全清洁，main 分支无未提交变更。Git 历史清晰，commit 消息规范。
+    </div>
+  </div>
+
+  <div class="hr-finding info">
+    <div class="hr-finding-head">ℹ️ 8. 中型文件分布 — 22 个文件超 500 行</div>
+    <div class="hr-finding-body">
+      500-1000 行区间 15 个文件（如 sessionManager.js 933L、useMethods.js 847L、pageInfo.js 832L），
+      体量适中但需关注增长趋势。petManager.ai.prompt.js (805L) 和 petManager.ai.api.js (751L) 增长较快。
+    </div>
+  </div>
+</div>
+
+<!-- Comparison -->
+<div class="hr-card">
+  <h2><span class="hr-h2-icon">📊</span> 与上次报告对比（2026-06-11）</h2>
+  <table class="hr-cmp">
+    <thead><tr><th>指标</th><th>上次 (06-11)</th><th>本次 (06-12)</th><th>变化</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>综合评分</td><td>77 分 / B 级</td><td>86 分 / A 级</td><td class="hr-cmp-up">↑ +9</td>
+      </tr>
+      <tr>
+        <td>复杂度维度</td><td>72 (warn)</td><td>80 (pass)</td><td class="hr-cmp-up">↑ +8</td>
+      </tr>
+      <tr>
+        <td>文件超 1000 行</td><td>8 个</td><td>7 个</td><td class="hr-cmp-up">↓ -1</td>
+      </tr>
+      <tr>
+        <td>domHelper 行数</td><td>419L / 13 方法</td><td>248L (+3 新模块)</td><td class="hr-cmp-up">↓ 41%</td>
+      </tr>
+      <tr>
+        <td>架构边界</td><td>清洁 ✓</td><td>清洁 ✓ (单职模块)</td><td class="hr-cmp-up">↑ +2</td>
+      </tr>
+      <tr>
+        <td>运行时依赖</td><td>0</td><td>0</td><td class="hr-cmp-same">—</td>
+      </tr>
+      <tr>
+        <td>未提交变更</td><td>有</td><td>0 (clean)</td><td class="hr-cmp-up">↑ 改善</td>
+      </tr>
+      <tr>
+        <td>TODO / 技术债</td><td>—</td><td>0 / token 去重完成</td><td class="hr-cmp-up">✓ 改善</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Recommendations -->
+<div class="hr-card">
+  <h2><span class="hr-h2-icon">💡</span> 改进建议</h2>
+
+  <div class="hr-rec">
+    <span class="hr-rec-prio p1">P1</span>
+    <strong>精简 ChatWindow/index.js</strong> — 1,668 行是目前最大的组件文件，也是唯一超 1500 行的文件。
+    将 hooks/useMethods.js (847L) 中的方法进一步拆分为独立 composables，
+    目标降至 1,200 行以内。预计可再减少 1 个 >1000L 文件。
+  </div>
+
+  <div class="hr-rec">
+    <span class="hr-rec-prio p1">P1</span>
+    <strong>精简 petManager.chat.js</strong> — 1,677 行是第二大文件，承载聊天逻辑+状态管理+消息处理。
+    可将消息渲染逻辑提取为独立模块，目标降至 1,200 行以内。
+  </div>
+
+  <div class="hr-rec">
+    <span class="hr-rec-prio p2">P2</span>
+    <strong>升级 mermaid.js 引用</strong> — cdn/markdown/mermaid.js (499L) 可更新为直接使用
+    ScriptHelper.runPageScriptWithData 替代 DomHelper.runPageScriptWithData，
+    降低对 DomHelper 委托层的依赖。
+  </div>
+
+  <div class="hr-rec">
+    <span class="hr-rec-prio p2">P2</span>
+    <strong>引入自动化健康巡检</strong> — 将本报告的关键指标（文件行数、复杂度、TODO 计数、未提交变更）
+    接入 CI/CD 或 cron 定时任务，自动生成并归档健康报告。
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="hr-card" style="border-left:3px solid var(--pass);">
+  <h2><span class="hr-h2-icon">📋</span> 综合评估</h2>
+  <div style="color:var(--text2);font-size:.88rem;line-height:1.7;">
+    <p><strong style="color:var(--pass)">A 级 · 健康</strong> — 项目整体运行良好，各项指标在可接受范围内。本回合完成 2 项关键重构。</p>
+    <p style="margin-top:8px;">
+      <strong>本回合成果：</strong>① domHelper.js 从 419L/5 职责拆为 4 个单职模块（domHelper 248L +
+      templateHelper 77L + scriptHelper 215L + fileHelper 67L），复杂度维度 +8；
+      ② token.js _getEnvToken 缓存化 + _readFromChromeStorage 共享化，消除重复降级链。
+    </p>
+    <p style="margin-top:8px;">
+      <strong>持续亮点：</strong>架构边界清洁，零运行时依赖，错误处理完备（462 catch 块），
+      零技术债标记，工作树完全清洁。
+    </p>
+    <p style="margin-top:8px;">
+      <strong>关注点：</strong>ChatWindow/index.js (1,668L) 和 petManager.chat.js (1,677L) 为最大文件，
+      建议下一回合拆分。dom/ 目录重构后无单文件超 250 行，复杂度已达标。
+    </p>
+    <p style="margin-top:8px;">
+      <strong>趋势：</strong>评分从 74→75→77→83→86，呈稳定上升趋势。预计在拆分 ChatWindow 和 petManager.chat 后可达 88-90 (A 级)。
+    </p>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  🩺 健康报告 · 2026-06-12 17:00:55 · 综合评分 <strong style="color:#22c55e">86 分 A 级</strong><br>
+  <span style="color:var(--text3)">由 rui-bot health-report 自动生成 · <a href="index.html">返回报告索引</a></span>
+</div>
+
+</div>
+</body>
+</html>

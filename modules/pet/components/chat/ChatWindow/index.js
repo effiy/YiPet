@@ -21,7 +21,7 @@
 
   const safeCall = _u.safeCall || function(fn, fv) { try { return fn() } catch(_) { return fv } }
   const safeCallAsync = _u.safeCallAsync || async function(fn, fv) { try { return await fn() } catch(_) { return fv } }
-  const getVueApi = _u.getVueApi || null
+  const getVueApi = _u.getVueApi || function () { return null }
   const canUseVueTemplate = _u.canUseVueTemplate || function() { return false }
   const getComponentModule = _u.getComponentModule || function(n) { return window.PetManager?.Components?.[n] || null }
   const loadTemplateIfAvailable = _u.loadTemplateIfAvailable || async function() { return '' }

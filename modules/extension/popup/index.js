@@ -294,6 +294,7 @@ class PopupController {
     this.previewPetSize(this.currentPetStatus.size)
 
     DomHelper.setValue(DomHelper.getElement('roleSelect'), this.currentPetStatus.role || '教师')
+    this.updateRoleIconPreview(this.currentPetStatus.role || '教师')
     DomHelper.setValue(DomHelper.getElement('colorSelect'), this.currentPetStatus.color)
 
     const modelTextEl = DomHelper.getElement('modelText')
@@ -308,6 +309,28 @@ class PopupController {
     const normalized = Number.isFinite(size) ? size : this.currentPetStatus.size
     const el = DomHelper.getElement('sizeValue')
     DomHelper.setText(el, `${normalized}px`)
+  }
+
+  /**
+   * 更新角色 icon 预览
+   * 使用 chrome.runtime.getURL 加载对应角色的 icon-64.png；若不存在则降级到 icon.jpeg
+   * @param {string} role - 角色名
+   */
+  updateRoleIconPreview(role) {
+    const img = DomHelper.getElement('roleIconPreview')
+    if (!img || typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.getURL) return
+    const safeRole = role && String(role).trim() ? String(role).trim() : '教师'
+    try {
+      const pngUrl = chrome.runtime.getURL(`assets/images/${safeRole}/icon-64.png`)
+      const jpgUrl = chrome.runtime.getURL(`assets/images/${safeRole}/icon.jpeg`)
+      // 避免重复绑定：先解绑再绑，确保多次调用只挂一个 onerror
+      img.onerror = () => {
+        if (img.src !== jpgUrl) img.src = jpgUrl
+      }
+      img.src = pngUrl
+    } catch (_) {
+      // 扩展上下文失效时静默忽略
+    }
   }
 
   async toggleVisibility(e) {

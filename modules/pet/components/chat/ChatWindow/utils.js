@@ -6,6 +6,7 @@
   'use strict'
 
   if (!window.PetManager) window.PetManager = {}
+  if (!window.PetManager.Components) window.PetManager.Components = {}
   const utils = {}
 
   utils.safeCall = function (fn, fallbackValue) {

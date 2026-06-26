@@ -90,6 +90,17 @@
     }
   }
 
+  // 根据宠物显示尺寸选择最佳 icon 资源（避免不必要的内存浪费）
+  // 优先选择不小于显示尺寸的最小资源（16/32/48/64/128/256/512），都没有则用 icon.png
+  function pickRoleIconResource(displaySize) {
+    const candidates = [16, 32, 48, 64, 128, 256, 512]
+    const size = Number.isFinite(displaySize) && displaySize > 0 ? displaySize : 256
+    for (const c of candidates) {
+      if (c >= size) return `icon-${c}.png`
+    }
+    return 'icon.png'
+  }
+
   // 更新宠物样式
   proto.updatePetStyle = function () {
     if (!this.pet) return
@@ -100,7 +111,8 @@
       (typeof PET_CONFIG !== 'undefined' && PET_CONFIG.constants && PET_CONFIG.constants.DEFAULTS
         ? PET_CONFIG.constants.DEFAULTS.PET_ROLE
         : '教师')
-    const iconUrl = chrome.runtime.getURL(`assets/images/${role}/icon.png`)
+    const iconRes = pickRoleIconResource(this.size)
+    const iconUrl = chrome.runtime.getURL(`assets/images/${role}/${iconRes}`)
 
     // 设置动态属性（位置、大小、显示状态、背景图片、z-index）
     this.pet.style.position = 'fixed'
@@ -132,9 +144,10 @@
 
     const role = this.role || '教师'
 
-    // 保存原始背景图片
+    // 保存原始背景图片（使用与当前显示尺寸匹配的 icon 资源）
     if (!this.originalBackgroundImage) {
-      this.originalBackgroundImage = chrome.runtime.getURL(`assets/images/${role}/icon.png`)
+      const iconRes = pickRoleIconResource(this.size)
+      this.originalBackgroundImage = chrome.runtime.getURL(`assets/images/${role}/${iconRes}`)
     }
 
     if (!window.imageResourceManager) {

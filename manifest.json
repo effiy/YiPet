@@ -131,7 +131,6 @@
       "resources": [
         "assets/icons/icon.png",
         "assets/images/*/icon.png",
-        "assets/images/*/icon-*.png",
         "assets/images/*/run/*.png",
         "libs/mermaid.min.js",
         "cdn/markdown/mermaid-page-load.js",

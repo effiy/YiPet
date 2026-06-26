@@ -92,6 +92,7 @@
 
   // 根据宠物显示尺寸选择最佳 icon 资源（避免不必要的内存浪费）
   // 优先选择不小于显示尺寸的最小资源（16/32/48/64/128/256/512），都没有则用 icon.png
+  // 任何 PNG 都不可用时由调用方降级到 icon.jpeg
   function pickRoleIconResource(displaySize) {
     const candidates = [16, 32, 48, 64, 128, 256, 512]
     const size = Number.isFinite(displaySize) && displaySize > 0 ? displaySize : 256
@@ -99,6 +100,36 @@
       if (c >= size) return `icon-${c}.png`
     }
     return 'icon.png'
+  }
+
+  /**
+   * 在背景图 URL 加载失败时降级到 icon.jpeg，保证宠物始终可见。
+   * 通过预加载 Image 检测可用资源，规避 background-image 无 onerror 的限制。
+   * @param {string} primaryUrl 优先使用的资源 URL（PNG）
+   * @param {string} fallbackUrl 降级资源 URL（JPEG）
+   * @returns {Promise<string>} 可用的资源 URL
+   */
+  function resolvePetBackground(primaryUrl, fallbackUrl) {
+    return new Promise((resolve) => {
+      if (!primaryUrl) {
+        resolve(fallbackUrl)
+        return
+      }
+      const probe = new Image()
+      let settled = false
+      const finish = (url) => {
+        if (settled) return
+        settled = true
+        probe.onload = null
+        probe.onerror = null
+        resolve(url)
+      }
+      probe.onload = () => finish(primaryUrl)
+      probe.onerror = () => finish(fallbackUrl)
+      probe.src = primaryUrl
+      // 极少数极端情况下图片既不触发 onload 也不触发 onerror，做一个超时兜底
+      setTimeout(() => finish(primaryUrl), 1500)
+    })
   }
 
   // 更新宠物样式
@@ -112,20 +143,27 @@
         ? PET_CONFIG.constants.DEFAULTS.PET_ROLE
         : '教师')
     const iconRes = pickRoleIconResource(this.size)
-    const iconUrl = chrome.runtime.getURL(`assets/images/${role}/${iconRes}`)
+    const primaryUrl = chrome.runtime.getURL(`assets/images/${role}/${iconRes}`)
+    const fallbackUrl = chrome.runtime.getURL(`assets/images/${role}/icon.jpeg`)
 
-    // 设置动态属性（位置、大小、显示状态、背景图片、z-index）
+    // 同步设置基础样式，避免背景图加载延迟期间宠物是空白
     this.pet.style.position = 'fixed'
     this.pet.style.top = `${this.position.y}px`
     this.pet.style.left = `${this.position.x}px`
     this.pet.style.width = `${this.size}px`
     this.pet.style.height = `${this.size}px`
-    this.pet.style.backgroundImage = `url(${iconUrl})`
     this.pet.style.backgroundSize = 'contain'
     this.pet.style.backgroundPosition = 'center'
     this.pet.style.backgroundRepeat = 'no-repeat'
     this.pet.style.borderRadius = `${PET_CONFIG.ui && PET_CONFIG.ui.borderRadius && PET_CONFIG.ui.borderRadius.pet ? PET_CONFIG.ui.borderRadius.pet : '50%'}`
     this.pet.style.zIndex = `${PET_CONFIG.ui.zIndex.pet}`
+
+    // 探测资源可用性，PNG 缺失时降级到 icon.jpeg
+    resolvePetBackground(primaryUrl, fallbackUrl).then((url) => {
+      if (!this.pet) return
+      this.pet.style.backgroundImage = `url(${url})`
+    })
+
     if (this.isVisible) {
       this.pet.classList.remove('tw-hidden')
     } else {
